@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pola — Kapruka's Virtual Market</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --orange:#E8521A;--orange-d:#c44214;--saffron:#F4C430;
+  --dark:#0E0D0C;--dark2:#181614;--dark3:#221F1C;--dark4:#2C2925;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#F2EDE6;--text2:#9B9288;--text3:#5C5750;
+  --panel:420px;--nav-h:56px;
+  --font-h:'Baloo 2',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif;
+}
+body{background:var(--dark);color:var(--text);font-family:var(--font-b);overflow:hidden;height:100vh}
+button,input{font-family:inherit;color:inherit;background:none;border:none;outline:none}
+button{cursor:pointer;transition:all 0.2s ease}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:linear-gradient(to bottom,rgba(14,13,12,0.95),rgba(14,13,12,0.8));backdrop-filter:blur(10px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;z-index:100;box-shadow:0 4px 30px rgba(0,0,0,0.4)}
+.nav-logo{font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.nav-logo span{color:var(--saffron);font-size:13px;font-family:var(--font-b);font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:rgba(244,196,48,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(244,196,48,0.2);margin-left:4px}
+.nav-actions{display:flex;align-items:center;gap:12px;margin-left:auto}
+.cart-btn{background:var(--dark3);border:1px solid var(--border2);padding:8px 16px;border-radius:30px;display:flex;align-items:center;gap:8px;font-weight:500;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,0.2)}
+.cart-btn:hover{background:var(--dark4);border-color:rgba(255,255,255,0.2)}
+.cart-badge{background:var(--orange);color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center}
+.kalu-btn{background:rgba(244,196,48,0.1);border:1px solid rgba(244,196,48,0.2);color:var(--saffron);padding:8px 16px;border-radius:30px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.kalu-btn:hover{background:rgba(244,196,48,0.18);border-color:rgba(244,196,48,0.4)}
+
+/* ── THREE.JS WORLD ── */
+#three-container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1}
+#labels-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.canvas-label{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;transition:opacity 0.25s ease;will-change:transform,opacity}
+.label-name{background:rgba(24,22,20,0.85);backdrop-filter:blur(4px);border:1px solid var(--border2);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text);margin-top:4px;white-space:nowrap;box-shadow:0 4px 15px rgba(0,0,0,0.3)}
+.label-role{font-size:10px;color:var(--text2);margin-top:1px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,0.8)}
+
+/* ── BACK BUTTON & OVERLAY ── */
+.back-btn{position:fixed;top:calc(var(--nav-h) + 20px);left:24px;z-index:10;background:rgba(24,22,20,0.9);border:1px solid var(--border2);backdrop-filter:blur(8px);padding:10px 18px;border-radius:30px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);opacity:0;pointer-events:none;transform:translateY(-10px);transition:all 0.3s cubic-bezier(0.16,1,0.3,1)}
+.back-btn.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+.back-btn:hover{background:var(--dark3);border-color:rgba(255,255,255,0.2)}
+#zoom-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:3;background:rgba(14,13,12,0.4);opacity:0;pointer-events:none;transition:opacity 0.4s ease}
+#zoom-overlay.active{opacity:1;pointer-events:auto}
+
+/* ── CHAT PANEL ── */
+.chat-panel{position:fixed;top:var(--nav-h);right:0;bottom:0;width:var(--panel);background:rgba(24,22,20,0.85);backdrop-filter:blur(20px);border-left:1px solid var(--border);z-index:20;transform:translateX(100%);transition:transform 0.45s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:-10px 0 40px rgba(0,0,0,0.5)}
+.chat-panel.open{transform:translateX(0)}
+.ch-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.ch-av{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid transparent}
+.ch-title{flex:1}
+.ch-name{font-family:var(--font-h);font-size:18px;font-weight:700;line-height:1.2}
+.ch-role{font-size:12px;color:var(--text2);margin-top:2px}
+.close-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text2)}
+.close-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.chat-msgs{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+.msg{display:flex;gap:12px;max-width:85%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-av{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.msg-bubble{background:var(--dark3);border:1px solid var(--border);padding:12px 16px;border-radius:18px;border-top-left-radius:4px;font-size:14px;line-height:1.5;color:var(--text)}
+.msg.user .msg-bubble{background:var(--orange);border-color:transparent;color:white;border-top-left-radius:18px;border-top-right-radius:4px}
+
+/* Product cards */
+.p-cards{display:grid;grid-template-columns:1fr;gap:12px;width:100%;margin:4px 0}
+.p-card{background:var(--dark2);border:1px solid var(--border2);border-radius:14px;padding:10px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 15px rgba(0,0,0,0.15)}
+.p-img{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--dark3);flex-shrink:0}
+.p-info{flex:1;min-width:0}
+.p-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-price{font-size:12px;color:var(--saffron);font-weight:700;margin-top:3px}
+.add-btn{background:rgba(255,255,255,0.05);border:1px solid var(--border2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:6px 12px;border-radius:20px}
+.add-btn:hover{background:var(--orange);border-color:transparent;color:white}
+
+/* Typing */
+.typing-wrap{display:flex;gap:12px;align-items:center}
+.typing-bubble{background:var(--dark3);border:1px solid var(--border);padding:12px 18px;border-radius:18px;border-top-left-radius:4px;display:flex;gap:4px;align-items:center}
+.t-dot{width:6px;height:6px;background:var(--text3);border-radius:50%;animation:t-bounce 1.4s infinite ease-in-out both}
+.t-dot:nth-child(2){animation-delay:0.2s}.t-dot:nth-child(3){animation-delay:0.4s}
+@keyframes t-bounce{0%,80%,100%{transform:scale(0.6)}40%{transform:scale(1.2);background:var(--text2)}}
+
+.ch-input-wrap{padding:20px 24px;border-top:1px solid var(--border);background:var(--dark2);display:flex;gap:10px;align-items:center}
+.ch-field{flex:1;background:var(--dark3);border:1px solid var(--border2);padding:12px 16px;border-radius:24px;font-size:14px;transition:border-color 0.2s;color:var(--text)}
+.ch-field::placeholder{color:var(--text3)}
+.ch-field:focus{border-color:rgba(255,255,255,0.25)}
+.send-btn{width:42px;height:42px;border-radius:50%;background:var(--dark3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px}
+.send-btn:hover:not(:disabled){background:var(--orange);color:white;border-color:transparent}
+.send-btn:disabled{opacity:0.3;cursor:not-allowed}
+
+/* ── KALU PANEL ── */
+.kalu-panel{position:fixed;bottom:-470px;left:50%;transform:translateX(-50%);width:500px;height:440px;background:rgba(20,18,16,0.95);backdrop-filter:blur(20px);border:1px solid rgba(244,196,48,0.15);border-bottom:none;border-radius:24px 24px 0 0;z-index:40;transition:bottom 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,0.6)}
+.kalu-panel.open{bottom:0}
+.kalu-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.kalu-header-left{display:flex;align-items:center;gap:10px}
+.kalu-avatar{width:36px;height:36px;border-radius:50%;background:rgba(244,196,48,0.1);border:1px solid rgba(244,196,48,0.25);display:flex;align-items:center;justify-content:center;font-size:18px}
+.kalu-title{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--saffron)}
+.kalu-sub{font-size:11px;color:var(--text2)}
+.kalu-msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:var(--dark3) transparent}
+.kalu-msg{background:var(--dark3);border:1px solid var(--border);padding:10px 14px;border-radius:14px;border-top-left-radius:2px;font-size:13.5px;max-width:85%;line-height:1.5;color:var(--text)}
+.kalu-msg.user{align-self:flex-end;background:rgba(244,196,48,0.12);border-color:rgba(244,196,48,0.2);color:var(--saffron);border-top-left-radius:14px;border-top-right-radius:2px}
+.kalu-chips{padding:0 20px 8px;display:flex;gap:8px;flex-wrap:wrap}
+.kalu-chip{background:rgba(255,255,255,0.03);border:1px solid var(--border2);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;color:var(--text2)}
+.kalu-chip:hover{background:rgba(255,255,255,0.08);border-color:var(--saffron);color:var(--saffron)}
+.kalu-input-wrap{padding:12px 20px 20px;display:flex;gap:10px}
+.kalu-send{width:42px;height:42px;border-radius:50%;background:rgba(244,196,48,0.15);border:1px solid rgba(244,196,48,0.25);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--saffron)}
+.kalu-send:hover{background:var(--saffron);color:var(--dark)}
+.kalu-send:disabled{opacity:0.3;cursor:not-allowed}
+
+/* ── CART ── */
+.overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:105;opacity:0;pointer-events:none;transition:opacity 0.3s}
+.overlay.show{opacity:1;pointer-events:auto}
+.cart-drawer{position:fixed;top:var(--nav-h);right:-400px;bottom:0;width:380px;background:var(--dark2);border-left:1px solid var(--border);z-index:110;transition:right 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:-10px 0 40px rgba(0,0,0,0.5)}
+.cart-drawer.open{right:0}
+.cart-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cart-title{font-family:var(--font-h);font-size:20px;font-weight:700;color:var(--saffron)}
+.cart-list{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:12px}
+.cart-item{background:var(--dark3);border:1px solid var(--border);padding:12px 16px;border-radius:12px;display:flex;align-items:center;gap:12px}
+.ci-name{flex:1;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-price{font-size:13px;color:var(--saffron);font-weight:700}
+.rm-btn{color:var(--text3);font-size:12px;padding:4px}
+.rm-btn:hover{color:var(--orange)}
+.cart-footer{padding:24px;border-top:1px solid var(--border);background:var(--dark)}
+.cf-row{display:flex;justify-content:space-between;margin-bottom:16px;font-weight:600;font-size:15px}
+.checkout-btn{width:100%;background:var(--orange);color:white;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3)}
+.checkout-btn:hover{background:var(--orange-d)}
+.empty-cart{text-align:center;color:var(--text3);font-size:13px;margin-top:40px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">⛺ Pola <span>Kapruka Market</span></div>
+  <div class="nav-actions">
+    <button class="kalu-btn" onclick="toggleKalu()">🐱 Ask Kalu</button>
+    <button class="cart-btn" onclick="toggleCart()">🛒 Cart <span class="cart-badge" id="cart-count">0</span></button>
+  </div>
+</nav>
+
+<button class="back-btn" id="back-btn" onclick="zoomOut()">← Back to Courtyard</button>
+<div id="zoom-overlay" onclick="zoomOut()"></div>
+<div id="three-container"></div>
+<div id="labels-layer"></div>
+
+<!-- STALL CHAT PANEL -->
+<div class="chat-panel" id="chat-panel">
+  <div class="ch-header">
+    <div class="ch-av" id="ch-av"></div>
+    <div class="ch-title">
+      <div class="ch-name" id="ch-name">...</div>
+      <div class="ch-role" id="ch-role">...</div>
+    </div>
+    <button class="close-btn" onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs"></div>
+  <div class="ch-input-wrap">
+    <input type="text" class="ch-field" id="chat-input" placeholder="Ask the shopkeeper..." onkeydown="if(event.key==='Enter') sendMsg()"/>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()">➔</button>
+  </div>
+</div>
+
+<!-- KALU PANEL -->
+<div class="kalu-panel" id="kalu-panel">
+  <div class="kalu-header">
+    <div class="kalu-header-left">
+      <div class="kalu-avatar">🐱</div>
+      <div>
+        <div class="kalu-title">Kalu</div>
+        <div class="kalu-sub">Pola's guide — knows every stall</div>
+      </div>
+    </div>
+    <button class="close-btn" onclick="toggleKalu()">✕</button>
+  </div>
+  <div class="kalu-msgs" id="kalu-msgs"></div>
+  <div class="kalu-chips" id="kalu-chips"></div>
+  <div class="kalu-input-wrap">
+    <input type="text" class="ch-field" id="kalu-input" placeholder="What are you looking for?" onkeydown="if(event.key==='Enter') sendKaluMsg()"/>
+    <button class="kalu-send" id="kalu-send-btn" onclick="sendKaluMsg()">➔</button>
+  </div>
+</div>
+
+<!-- CART DRAWER -->
+<div class="overlay" id="overlay" onclick="toggleCart()"></div>
+<div class="cart-drawer" id="cart-drawer">
+  <div class="cart-header">
+    <div class="cart-title">🛒 Your Cart</div>
+    <button class="close-btn" onclick="toggleCart()">✕</button>
+  </div>
+  <div class="cart-list" id="cart-list"><div class="empty-cart">Your cart is empty. Start browsing the stalls!</div></div>
+  <div class="cart-footer">
+    <div class="cf-row"><span>Total</span><span id="cart-total" style="color:var(--saffron)">LKR 0</span></div>
+    <button class="checkout-btn" onclick="checkout()">Checkout at the Till →</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────
+const BACKEND_URL = 'http://localhost:8000';
+const GROQ_KEY = 'YOUR_GROQ_API_KEY'; // Wire via Cloudflare Worker
+
+// ── STATE ──────────────────────────────────────────────────────────
+let activeStall = null;
+let histories = {};
+let cart = [];
+let isLoading = false;
+let isZoomed = false;
+let kaluOpen = false;
+let kaluHistory = [];
+let kaluLoading = false;
+
+// ── STALL DEFINITIONS ──────────────────────────────────────────────
+const STALLS = [
+  {
+    id:'cakes', name:'Aunty Manel', role:'Bakery', emoji:'🎂',
+    color:'#E8521A', category:'cakes', x:-6, z:-5,
+    greeting:"Ah, darling! Welcome to Manel's corner. Today the red velvet is fresh, and the black forest — aney, don't even ask, it's perfect. What's the occasion?",
+    systemPrompt:`You are Aunty Manel, the warm, slightly emotionally manipulative bakery shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 58, run your cake stall like it's your own kitchen, and call everyone "darling."
+
+PERSONALITY: Unconditionally warm, proud of every cake, cannot accept "something simple." Every cake has a story. You gently guilt-trip indecisive customers — lovingly.
+
+SPEECH: Proper, nurturing English. Occasionally slip into Tanglish ONLY when the customer is really indecisive or when it feels natural (maybe 1 in 5 messages). Example: "Aney darling, ithu birthday ekkata or what? Just tell Manel, I'll sort out."
+
+PRODUCTS: When you have real products from the catalog, include them as:
+<products>[{"id":"1","name":"Red Velvet Cake","price":"LKR 2500","image":"https://picsum.photos/seed/cake1/100","url":"#"}]</products>
+
+RULES: Keep responses short and warm, 2-3 sentences max. Ask what the occasion is if they haven't said. Never say you can't help. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'flowers', name:'Ruwani', role:'Florist', emoji:'💐',
+    color:'#9C27B0', category:'flowers', x:-2, z:-7,
+    greeting:"Hello. You've walked into the quietest corner of Pola. The flowers here have things to say — you just need to know which one to listen to. Who are these for?",
+    systemPrompt:`You are Ruwani, the soft-spoken, poetic florist at Pola — Sri Lanka's virtual marketplace. You are 34, studied literature, ended up with flowers, and have no regrets.
+
+PERSONALITY: Quietly poetic, reads too much into flower choices, slightly dramatic about it. A pause before answering, like choosing words the way you'd choose a stem.
+
+SPEECH: Soft, considered English. Tanglish ONLY when the situation is complicated (relationships, mixed feelings). Example: "Aney, roses are okay but if the situation is like that... maybe gerberas? Less pressure, no?"
+
+PRODUCTS:
+<products>[{"id":"2","name":"Pink Rose Bouquet","price":"LKR 1800","image":"https://picsum.photos/seed/flowers1/100","url":"#"}]</products>
+
+RULES: 2-3 sentences max, thoughtful and measured. Always ask who the flowers are for. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'grocery', name:'Sampath', role:'Grocery', emoji:'🥬',
+    color:'#2D6A4F', category:'grocery', x:4, z:-6,
+    greeting:"What do you need? I have everything. Vegetables, fruits, pantry — all fresh. Tell me what you're looking for.",
+    systemPrompt:`You are Sampath, the blunt, efficient grocery shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 44, know the price of everything without looking.
+
+PERSONALITY: Blunt, fast, minimal small talk. Secretly enjoys helping but won't show it. Slight impatience if customers browse too long.
+
+SPEECH: Short sentences, efficient. Tanglish ONLY when something's out of stock or the customer is vague. Example: "Machan, that one nehe here. But this one same same, cheaper also. You want or not?"
+
+PRODUCTS:
+<products>[{"id":"3","name":"Tomatoes 1kg","price":"LKR 350","image":"https://picsum.photos/seed/grocery1/100","url":"#"}]</products>
+
+RULES: Very short responses. Ask what specifically they need if vague. Covers grocery, vegetables, fruits. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'gifts', name:'Dilki', role:'Gifts & Hampers', emoji:'🎁',
+    color:'#FFB300', category:'giftset', x:7, z:-1,
+    greeting:"Oh hi hi hi! Welcome! Okay so — who are we shopping for? Because I already have three ideas and you haven't even told me yet!",
+    systemPrompt:`You are Dilki, the infectiously enthusiastic gifts shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 27 and genuinely excited about finding the perfect gift.
+
+PERSONALITY: Bubbling, fast-talking, slightly overwhelming, always right about what people will love. Uses "okay but listen—" a lot.
+
+SPEECH: Energetic English. Tanglish ONLY when the gift is last-minute panic. Example: "Okay but listen, you said tomorrow? Aiyo, no stress, we can fix this — what's the vibe, sweet or fun?"
+
+PRODUCTS:
+<products>[{"id":"4","name":"Luxury Gift Box","price":"LKR 3500","image":"https://picsum.photos/seed/gifts1/100","url":"#"}]</products>
+
+RULES: High energy, short bursts. Extract who the gift is for and what they're like. Covers giftset, chocolates, softtoys, personalized gifts. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'beauty', name:'Nadee', role:'Beauty & Fashion', emoji:'💄',
+    color:'#E91E63', category:'cosmetics', x:6, z:4,
+    greeting:"Hey. You've come to the right place. Just tell me what you're after and I'll tell you exactly what to get. No wasting time.",
+    systemPrompt:`You are Nadee, the confident, opinionated beauty shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 31, have opinions, share them, for the customer's benefit.
+
+PERSONALITY: Direct, zero filter but genuinely helpful. The friend who tells you the truth.
+
+SPEECH: Clean, assured English. Tanglish ONLY when someone's buying for someone else's approval. Example: "Putha, if you're buying this for him to notice — just buy the red one. Trust Nadee."
+
+PRODUCTS:
+<products>[{"id":"5","name":"Matte Lipstick - Ruby Red","price":"LKR 1200","image":"https://picsum.photos/seed/beauty1/100","url":"#"}]</products>
+
+RULES: Confident and direct, 2-3 sentences. Covers cosmetics, perfumes, clothing, fashion. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'electronics', name:'Kasun', role:'Electronics', emoji:'📱',
+    color:'#1E88E5', category:'electronics', x:-7, z:3,
+    greeting:"Oh — hi! Welcome. So, uh, what are you looking for? I can help with specs, comparisons, anything really. Just... what's the use case?",
+    systemPrompt:`You are Kasun, the brilliant-but-slightly-awkward electronics shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 23, just finished a CS degree, knows everything about specs, still working on knowing how to talk to people.
+
+PERSONALITY: Genuinely brilliant, socially slightly awkward, means well. Over-explains and then apologises for it.
+
+SPEECH: Slightly formal English. Tanglish ONLY when the customer asks something surprisingly smart. Example: "Oh wait, you know about refresh rates? Machan, most people nehe ask that — okay now we can actually talk."
+
+PRODUCTS:
+<products>[{"id":"6","name":"Sony Headphones WH-1000XM5","price":"LKR 85000","image":"https://picsum.photos/seed/elec1/100","url":"#"}]</products>
+
+RULES: Needs parameters, not "which one is good." Ask clarifying questions about use case. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'kids', name:'Chuti Nanda', role:'Kids & Baby', emoji:'👶',
+    color:'#FF7043', category:'kidstoys', x:-3, z:6,
+    greeting:"AIYOOOO! Come come come! Who's the little one?! How old? First birthday? Chuti Nanda knows exactly what to get, don't worry about anything!",
+    systemPrompt:`You are Chuti Nanda, the boisterous, loving kids & baby shopkeeper at Pola — Sri Lanka's virtual marketplace. You are 52, grandmother of six, know every toy and baby product by heart.
+
+PERSONALITY: Loud love. Treats every customer like they're buying for her own grandchildren.
+
+SPEECH: Warm, enthusiastic English. Tanglish ONLY when someone's a first-time parent. Example: "Aney first baby? Don't worry baba, Chuti Nanda will tell you everything. My daughter also was like this — totally lost!"
+
+PRODUCTS:
+<products>[{"id":"7","name":"Fisher Price Baby Gym","price":"LKR 4500","image":"https://picsum.photos/seed/kids1/100","url":"#"}]</products>
+
+RULES: High energy, warm, enthusiastic. Always asks the child's age. Will NOT let you buy age-inappropriate toys. Covers kidstoys and babyitems. Show 1-2 placeholder products if no backend data.`
+  },
+  {
+    id:'pharmacy', name:'Dr. Rohan', role:'Pharmacy', emoji:'💊',
+    color:'#00796B', category:'pharmacy', x:2, z:6,
+    greeting:"Good day. What can I help you with today? Take your time — and please, describe the actual symptoms rather than what you've read online.",
+    systemPrompt:`You are Dr. Rohan, the calm, precise, retired pharmacist at Pola — Sri Lanka's virtual marketplace. You are 61, came back because you were bored at home.
+
+PERSONALITY: Measured, trustworthy, takes every query seriously. Never dismissive. Always explains the why behind recommendations.
+
+SPEECH: Clear, measured English. Tanglish ONLY when someone is clearly self-diagnosing from Google. Example: "Machan, I know you've been reading things online. Put the phone down and tell me the actual symptoms."
+
+PRODUCTS:
+<products>[{"id":"8","name":"Panadol 500mg x 24","price":"LKR 180","image":"https://picsum.photos/seed/pharma1/100","url":"#"}]</products>
+
+RULES: Calm and professional. Ask clarifying questions before recommending. ALWAYS add "Please consult a doctor for medical advice" for anything serious. Covers pharmacy and ayurvedic. Show 1-2 placeholder products if no backend data.`
+  }
+];
+
+// ── KALU SYSTEM PROMPT ─────────────────────────────────────────────
+const KALU_SYSTEM = `You are Kalu, a wise and slightly cheeky guide cat who lives at Pola — Sri Lanka's virtual marketplace powered by Kapruka. You know every stall and every shopkeeper by heart.
+
+YOUR JOB: Help visitors figure out which stall to visit. You navigate, you don't sell.
+
+THE STALLS:
+- 🎂 Aunty Manel — Bakery (id: cakes) — cakes, birthday cakes, celebration cakes
+- 💐 Ruwani — Florist (id: flowers) — flowers, bouquets, floral arrangements
+- 🥬 Sampath — Grocery (id: grocery) — vegetables, fruits, pantry, daily essentials
+- 🎁 Dilki — Gifts & Hampers (id: gifts) — gift sets, chocolates, soft toys, personalised gifts
+- 💄 Nadee — Beauty & Fashion (id: beauty) — cosmetics, perfumes, clothing, fashion
+- 📱 Kasun — Electronics (id: electronics) — phones, laptops, headphones, gadgets
+- 👶 Chuti Nanda — Kids & Baby (id: kids) — toys, baby products, infant essentials
+- 💊 Dr. Rohan — Pharmacy (id: pharmacy) — medicine, ayurvedic, health essentials
+
+PERSONALITY: Warm, slightly knowing, feline. Short responses — cats don't ramble.
+
+STALL SUGGESTIONS: When you know which stall fits, include this JSON so the UI renders a navigation chip:
+<suggest>[{"id":"cakes","name":"Aunty Manel","emoji":"🎂"}]</suggest>
+
+You can suggest multiple stalls if the request spans sections.
+
+SPEECH: Mostly English. Occasional Tanglish surprise — maybe once every 5-6 messages. Example: "Aiyo, that one? Definitely Dilki's stall machang. She'll sort you out before you finish the sentence."
+
+RULES:
+- Never pretend to sell products yourself
+- Keep responses to 2-3 sentences max
+- If vague, ask one clarifying question
+- Be warm but brief — you are a cat`;
+
+const KALU_QUICK_CHIPS = [
+  { label:"I need a gift 🎁", msg:"I need a gift" },
+  { label:"Looking for flowers 💐", msg:"Looking for flowers" },
+  { label:"Need groceries 🥬", msg:"Need groceries" },
+  { label:"Something sweet 🎂", msg:"I want something sweet" }
+];
+
+// ── THREE.JS SETUP ─────────────────────────────────────────────────
+let scene, camera, renderer, raycaster, mouse;
+let interactiveMeshes = [];
+let glowRings = [];
+let targetCamPos = { x:0, y:11, z:11 };
+let currentCamPos = { x:0, y:11, z:11 };
+let targetLookAt = { x:0, y:0, z:0 };
+let currentLookAt = { x:0, y:0, z:0 };
+let animSpeed = 0.08;
+let clock = new THREE.Clock();
+
+const TREES = [{x:-4,z:-2},{x:0,z:-4},{x:5,z:-3},{x:4,z:2},{x:-1,z:3},{x:-5,z:1},{x:2,z:-2},{x:-3,z:-6}];
+
+function initThree() {
+  const container = document.getElementById('three-container');
+  const width = container.offsetWidth, height = container.offsetHeight;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0E0D0C);
+  scene.fog = new THREE.FogExp2(0x0E0D0C, 0.032);
+
+  const aspect = width / height, d = 10;
+  camera = new THREE.OrthographicCamera(-d*aspect, d*aspect, d, -d, 1, 1000);
+  camera.position.set(targetCamPos.x, targetCamPos.y, targetCamPos.z);
+  camera.lookAt(0, 0, 0);
+
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(width, height);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.75);
+  dir.position.set(15, 25, 10);
+  dir.castShadow = true;
+  dir.shadow.mapSize.width = 2048;
+  dir.shadow.mapSize.height = 2048;
+  dir.shadow.bias = -0.0005;
+  scene.add(dir);
+
+  // Floor
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(40, 40),
+    new THREE.MeshStandardMaterial({ color:0x141210, roughness:0.85 })
+  );
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Centre courtyard ring
+  const cRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.8, 2.0, 32),
+    new THREE.MeshBasicMaterial({ color:0xF4C430, side:THREE.DoubleSide, transparent:true, opacity:0.15 })
+  );
+  cRing.rotation.x = Math.PI/2;
+  cRing.position.y = 0.01;
+  scene.add(cRing);
+
+  buildStalls();
+  buildTrees();
+  buildKalu();
+
+  window.addEventListener('resize', onResize);
+  container.addEventListener('click', onCanvasClick);
+  animate();
+}
+
+function buildStalls() {
+  STALLS.forEach(s => {
+    const group = new THREE.Group();
+    group.position.set(s.x, 0, s.z);
+    group.userData = { stallId: s.id };
+
+    // Glow ring
+    const glowMesh = new THREE.Mesh(
+      new THREE.RingGeometry(0, 1.3, 16),
+      new THREE.MeshBasicMaterial({ color:new THREE.Color(s.color), side:THREE.DoubleSide, transparent:true, opacity:0.25 })
+    );
+    glowMesh.rotation.x = -Math.PI/2;
+    glowMesh.position.y = 0.02;
+    group.add(glowMesh);
+    glowRings.push(glowMesh);
+
+    // Body
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 1.3, 1.3),
+      new THREE.MeshStandardMaterial({ color:0x1E1B18, roughness:0.5 })
+    );
+    body.position.y = 0.65;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    // Window
+    const win = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.1, 0.6),
+      new THREE.MeshStandardMaterial({ color:new THREE.Color(s.color), emissive:new THREE.Color(s.color), emissiveIntensity:0.4 })
+    );
+    win.position.set(0, 0.65, 0.66);
+    group.add(win);
+
+    // Roof — varied per stall type
+    let roof;
+    const roofColor = new THREE.Color(s.color);
+    if (s.id === 'electronics' || s.id === 'pharmacy') {
+      roof = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.2, 1.5), new THREE.MeshStandardMaterial({ color:roofColor, roughness:0.2 }));
+      roof.position.y = 1.4;
+    } else if (s.id === 'cakes' || s.id === 'gifts') {
+      roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 1.1, 0.7, 4), new THREE.MeshStandardMaterial({ color:roofColor, roughness:0.4 }));
+      roof.position.y = 1.65;
+      roof.rotation.y = Math.PI/4;
+    } else if (s.id === 'flowers' || s.id === 'grocery') {
+      roof = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 0.4, 4, 1, true, 0, Math.PI), new THREE.MeshStandardMaterial({ color:roofColor, roughness:0.7, side:THREE.DoubleSide }));
+      roof.position.set(0, 1.4, 0.2);
+      roof.rotation.x = Math.PI/2;
+    } else {
+      roof = new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshStandardMaterial({ color:roofColor, roughness:0.5 }));
+      roof.position.y = 1.3;
+    }
+    roof.castShadow = true;
+    group.add(roof);
+
+    [body, roof, win].forEach(m => { m.userData = { parentGroup: group }; interactiveMeshes.push(m); });
+    scene.add(group);
+    createLabel(s);
+  });
+}
+
+function buildTrees() {
+  TREES.forEach(t => {
+    const g = new THREE.Group();
+    g.position.set(t.x, 0, t.z);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.5, 8), new THREE.MeshStandardMaterial({ color:0x3B2A1A }));
+    trunk.position.y = 0.25;
+    const foliage = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshStandardMaterial({ color:0x1E3A1E, roughness:0.9 }));
+    foliage.position.y = 0.75;
+    foliage.scale.set(1, 1.3, 1);
+    foliage.castShadow = true;
+    g.add(trunk, foliage);
+    scene.add(g);
+  });
+}
+
+function buildKalu() {
+  const g = new THREE.Group();
+  g.position.set(0, 0, 0);
+  g.userData = { isKalu: true };
+
+  const fur = new THREE.MeshStandardMaterial({ color:0x221F1C, roughness:0.6 });
+  const eyes = new THREE.MeshBasicMaterial({ color:0xCCFF00 });
+  const collar = new THREE.MeshStandardMaterial({ color:0xF4C430, emissive:0xF4C430, emissiveIntensity:0.3 });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8), fur);
+  body.rotation.z = Math.PI/2; body.position.y = 0.25; body.castShadow = true;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), fur);
+  head.position.set(0.25, 0.45, 0); head.castShadow = true;
+
+  const earGeo = new THREE.ConeGeometry(0.07, 0.15, 4);
+  const lEar = new THREE.Mesh(earGeo, fur); lEar.position.set(0.25, 0.62, 0.08); lEar.rotation.z = -0.1; lEar.rotation.x = 0.2;
+  const rEar = new THREE.Mesh(earGeo, fur); rEar.position.set(0.25, 0.62, -0.08); rEar.rotation.z = -0.1; rEar.rotation.x = -0.2;
+
+  const eyeGeo = new THREE.SphereGeometry(0.03, 8, 8);
+  const lEye = new THREE.Mesh(eyeGeo, eyes); lEye.position.set(0.43, 0.48, 0.07);
+  const rEye = new THREE.Mesh(eyeGeo, eyes); rEye.position.set(0.43, 0.48, -0.07);
+
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 4), fur);
+  tail.position.set(-0.32, 0.4, 0); tail.rotation.z = -Math.PI/4; tail.castShadow = true;
+
+  const collarMesh = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.02, 4, 12), collar);
+  collarMesh.position.set(0.21, 0.36, 0); collarMesh.rotation.y = Math.PI/2;
+
+  // Invisible hitbox for easy clicking
+  const hitBox = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.5), new THREE.MeshBasicMaterial({ visible:false }));
+  hitBox.position.set(0, 0.35, 0);
+  hitBox.userData = { parentGroup: g };
+  interactiveMeshes.push(hitBox);
+
+  g.add(body, head, lEar, rEar, lEye, rEye, tail, collarMesh, hitBox);
+  scene.add(g);
+}
+
+function createLabel(stall) {
+  const div = document.createElement('div');
+  div.className = 'canvas-label';
+  div.id = 'label-' + stall.id;
+  div.innerHTML = `<div style="font-size:20px;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5))">${stall.emoji}</div><div class="label-name">${stall.name}</div><div class="label-role">${stall.role}</div>`;
+  document.getElementById('labels-layer').appendChild(div);
+}
+
+// ── ANIMATION LOOP ─────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  glowRings.forEach((g, i) => {
+    g.material.opacity = 0.20 + Math.sin(t * 2.5 + i * 0.4) * 0.08;
+    const sc = 1.0 + Math.sin(t * 2.5 + i * 0.4) * 0.03;
+    g.scale.set(sc, sc, 1);
+  });
+
+  currentCamPos.x += (targetCamPos.x - currentCamPos.x) * animSpeed;
+  currentCamPos.y += (targetCamPos.y - currentCamPos.y) * animSpeed;
+  currentCamPos.z += (targetCamPos.z - currentCamPos.z) * animSpeed;
+  camera.position.set(currentCamPos.x, currentCamPos.y, currentCamPos.z);
+
+  currentLookAt.x += (targetLookAt.x - currentLookAt.x) * animSpeed;
+  currentLookAt.y += (targetLookAt.y - currentLookAt.y) * animSpeed;
+  currentLookAt.z += (targetLookAt.z - currentLookAt.z) * animSpeed;
+  camera.lookAt(currentLookAt.x, currentLookAt.y, currentLookAt.z);
+
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+function updateLabels() {
+  const container = document.getElementById('three-container');
+  STALLS.forEach(s => {
+    const lbl = document.getElementById('label-' + s.id);
+    if (!lbl) return;
+    lbl.style.opacity = (isZoomed && activeStall !== s.id) ? '0' : '1';
+    const wp = new THREE.Vector3(s.x, 1.8, s.z);
+    wp.project(camera);
+    lbl.style.left = ((wp.x * .5 + .5) * container.offsetWidth) + 'px';
+    lbl.style.top = ((-(wp.y) * .5 + .5) * container.offsetHeight) + 'px';
+  });
+}
+
+function onResize() {
+  const w = document.getElementById('three-container').offsetWidth;
+  const h = document.getElementById('three-container').offsetHeight;
+  renderer.setSize(w, h);
+  const aspect = w / h, d = isZoomed ? 3.5 : 10;
+  camera.left = -d*aspect; camera.right = d*aspect;
+  camera.top = d; camera.bottom = -d;
+  camera.updateProjectionMatrix();
+}
+
+// ── RAYCASTING / CLICK ─────────────────────────────────────────────
+function onCanvasClick(e) {
+  const container = document.getElementById('three-container');
+  const rect = container.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / container.offsetWidth) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / container.offsetHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(interactiveMeshes);
+  if (!hits.length) return;
+  const group = hits[0].object.userData.parentGroup;
+  if (!group) return;
+  if (group.userData.stallId) zoomToStall(group.userData.stallId, group.position);
+  else if (group.userData.isKalu) toggleKalu();
+}
+
+function zoomToStall(stallId, position) {
+  if (isZoomed) return;
+  isZoomed = true;
+  activeStall = stallId;
+  targetCamPos = { x:position.x + 4, y:5, z:position.z + 4 };
+  targetLookAt = { x:position.x, y:0.8, z:position.z };
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.left = -3.5*aspect; camera.right = 3.5*aspect;
+  camera.top = 3.5; camera.bottom = -3.5;
+  camera.updateProjectionMatrix();
+  document.getElementById('zoom-overlay').classList.add('active');
+  document.getElementById('back-btn').classList.add('show');
+  setTimeout(() => openChat(stallId), 400);
+}
+
+function zoomOut() {
+  if (!isZoomed) return;
+  isZoomed = false;
+  activeStall = null;
+  document.getElementById('chat-panel').classList.remove('open');
+  document.getElementById('zoom-overlay').classList.remove('active');
+  document.getElementById('back-btn').classList.remove('show');
+  targetCamPos = { x:0, y:11, z:11 };
+  targetLookAt = { x:0, y:0, z:0 };
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.left = -10*aspect; camera.right = 10*aspect;
+  camera.top = 10; camera.bottom = -10;
+  camera.updateProjectionMatrix();
+}
+
+// ── STALL CHAT ─────────────────────────────────────────────────────
+function openChat(stallId) {
+  const s = STALLS.find(x => x.id === stallId);
+  if (!s) return;
+  document.getElementById('ch-av').textContent = s.emoji;
+  document.getElementById('ch-av').style.background = s.color + '22';
+  document.getElementById('ch-av').style.border = `1px solid ${s.color}44`;
+  document.getElementById('ch-name').textContent = s.name;
+  document.getElementById('ch-role').textContent = s.role;
+
+  if (!histories[stallId]) histories[stallId] = [];
+  const msgs = document.getElementById('chat-msgs');
+  msgs.innerHTML = '';
+
+  if (histories[stallId].length === 0) {
+    renderBubble('agent', s.greeting, s);
+    histories[stallId].push({ role:'assistant', content:s.greeting });
+  } else {
+    histories[stallId].forEach(m => { if (m.role !== 'system') renderBubble(m.role === 'user' ? 'user' : 'agent', m.content, s); });
+  }
+
+  document.getElementById('chat-panel').classList.add('open');
+  setTimeout(() => document.getElementById('chat-input').focus(), 400);
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+  if (isZoomed) zoomOut();
+}
+
+// cross-stall hint passed from one shopkeeper to the next
+let crossStallHint = null;
+
+async function sendMsg() {
+  if (!activeStall || isLoading) return;
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  const s = STALLS.find(x => x.id === activeStall);
+  renderBubble('user', text);
+  histories[activeStall].push({ role:'user', content:text });
+  const msgs = document.getElementById('chat-msgs');
+  showTyping(msgs, s.emoji, s.color + '22');
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const data = await callBackend(activeStall, text, histories[activeStall], cart, crossStallHint);
+    crossStallHint = null; // consumed
+    hideTyping(msgs);
+    processReply(data, activeStall, s);
+  } catch(err) {
+    hideTyping(msgs);
+    renderBubble('agent', "Sorry darling, I'm having a little trouble. Try again in a moment!", s);
+    console.error(err);
+  }
+  isLoading = false;
+  document.getElementById('send-btn').disabled = false;
+}
+
+async function callBackend(stallId, message, history, cartContext, crossStallHint) {
+  const r = await fetch(`${BACKEND_URL}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stall_id: stallId,
+      message,
+      history: history.filter(m => m.role !== 'system').slice(-8),
+      cart_context: cartContext.slice(-5),
+      cross_stall_hint: crossStallHint || null,
+    })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function processReply(data, stallId, stall) {
+  // Store plain text in history for context continuity
+  const fullText = data.reply + (data.products.length ? ' [showed products]' : '');
+  histories[stallId].push({ role:'assistant', content: fullText });
+
+  if (data.reply) renderBubble('agent', data.reply, stall);
+  if (data.products?.length) renderProducts(data.products, document.getElementById('chat-msgs'));
+  if (data.delivery_info) renderDeliveryInfo(data.delivery_info, stall);
+
+  // Cross-stall suggestion — render as a navigable chip inside the chat
+  if (data.cross_stall_suggestions?.length) {
+    renderCrossStallBanner(data.cross_stall_suggestions, stall);
+  }
+}
+
+function renderDeliveryInfo(info, stall) {
+  if (!info?.raw) return;
+  const msgs = document.getElementById('chat-msgs');
+  const el = document.createElement('div');
+  el.style.cssText = `background:rgba(244,196,48,0.08);border:1px solid rgba(244,196,48,0.2);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--text2);margin-top:2px;`;
+  el.textContent = '🚚 ' + info.raw.split('\n')[0]; // first line of delivery info
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderCrossStallBanner(suggestions, fromStall) {
+  const msgs = document.getElementById('chat-msgs');
+  suggestions.forEach(s => {
+    const targetStall = STALLS.find(x => x.id === s.stall_id);
+    if (!targetStall) return;
+    const banner = document.createElement('div');
+    banner.style.cssText = `display:flex;align-items:center;gap:10px;background:${targetStall.color}11;border:1px solid ${targetStall.color}33;border-radius:12px;padding:10px 14px;margin-top:4px;cursor:pointer;transition:background 0.2s;`;
+    banner.innerHTML = `
+      <span style="font-size:20px">${s.emoji || targetStall.emoji}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${s.name || targetStall.name} can help with this too</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:1px">${s.hint || 'Visit their stall →'}</div>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:${targetStall.color};white-space:nowrap">Visit →</div>
+    `;
+    banner.onclick = () => {
+      // Set cross-stall hint so the receiving shopkeeper knows why you came
+      crossStallHint = `${fromStall.name} recommended you come here: ${s.hint || ''}`;
+      const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === s.stall_id);
+      if (mesh) {
+        closeChat();
+        setTimeout(() => zoomToStall(s.stall_id, mesh.userData.parentGroup.position), 300);
+      }
+    };
+    msgs.appendChild(banner);
+  });
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── KALU ───────────────────────────────────────────────────────────
+function toggleKalu() {
+  kaluOpen = !kaluOpen;
+  document.getElementById('kalu-panel').classList.toggle('open', kaluOpen);
+  if (kaluOpen && !kaluHistory.length) initKalu();
+  if (kaluOpen) setTimeout(() => document.getElementById('kalu-input').focus(), 400);
+}
+
+function initKalu() {
+  const greeting = "Mrrrow. Welcome to Pola. I know every stall, every shopkeeper, every product in this place. What are you looking for?";
+  addKaluMsg(greeting, 'agent');
+  kaluHistory.push({ role:'assistant', content:greeting });
+
+  const chips = document.getElementById('kalu-chips');
+  chips.innerHTML = '';
+  KALU_QUICK_CHIPS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'kalu-chip';
+    btn.textContent = c.label;
+    btn.onclick = () => sendKaluMsg(c.msg);
+    chips.appendChild(btn);
+  });
+}
+
+async function sendKaluMsg(preset) {
+  if (kaluLoading) return;
+  const inp = document.getElementById('kalu-input');
+  const text = (preset || inp.value).trim();
+  if (!text) return;
+  inp.value = '';
+
+  document.getElementById('kalu-chips').innerHTML = '';
+  addKaluMsg(text, 'user');
+  kaluHistory.push({ role:'user', content:text });
+
+  kaluLoading = true;
+  document.getElementById('kalu-send-btn').disabled = true;
+  const msgs = document.getElementById('kalu-msgs');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'kalu-msg'; typingEl.id = 'kalu-typing';
+  typingEl.innerHTML = '<span style="opacity:.4">...</span>';
+  msgs.appendChild(typingEl);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const r = await fetch(`${BACKEND_URL}/kalu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        history: kaluHistory.slice(-8),
+        cart_context: cart.slice(-5),
+      })
+    });
+    document.getElementById('kalu-typing')?.remove();
+    if (r.ok) {
+      const data = await r.json();
+      kaluHistory.push({ role:'assistant', content: data.reply });
+      processKaluReply(data.reply, data.suggestions || []);
+    } else {
+      addKaluMsg("Mreow… something's off. Try again in a moment.", 'agent');
+    }
+  } catch(e) {
+    document.getElementById('kalu-typing')?.remove();
+    addKaluMsg("Mreow… something's off. Try again in a moment.", 'agent');
+  }
+  kaluLoading = false;
+  document.getElementById('kalu-send-btn').disabled = false;
+}
+
+function processKaluReply(text, suggestions) {
+  // text is already clean (backend strips <suggest> tags)
+  // suggestions is a parsed array from the backend
+  if (text) addKaluMsg(text, 'agent');
+  if (suggestions && suggestions.length) renderKaluChips(suggestions);
+}
+
+function renderKaluChips(suggestions) {
+  const chips = document.getElementById('kalu-chips');
+  chips.innerHTML = '';
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'kalu-chip';
+    const stall = STALLS.find(x => x.id === s.id);
+    btn.textContent = `${s.emoji || stall?.emoji || ''} Visit ${s.name} →`;
+    if (stall) {
+      btn.style.borderColor = stall.color + '44';
+      btn.style.color = stall.color;
+      btn.onclick = () => {
+        crossStallHint = s.hint ? `Kalu sent you here: ${s.hint}` : null;
+        toggleKalu();
+        const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === s.id);
+        if (mesh) setTimeout(() => zoomToStall(s.id, mesh.userData.parentGroup.position), 200);
+      };
+    }
+    chips.appendChild(btn);
+  });
+}
+
+function addKaluMsg(text, type) {
+  const msgs = document.getElementById('kalu-msgs');
+  const el = document.createElement('div');
+  el.className = 'kalu-msg' + (type === 'user' ? ' user' : '');
+  el.textContent = text;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── SHARED RENDERING ───────────────────────────────────────────────
+function renderBubble(type, text, stall) {
+  const s = stall || (activeStall ? STALLS.find(x => x.id === activeStall) : null);
+  const el = document.createElement('div');
+  el.className = 'msg ' + type;
+  const av = document.createElement('div');
+  av.className = 'msg-av';
+  if (type === 'agent' && s) { av.textContent = s.emoji; av.style.background = s.color + '22'; }
+  else { av.textContent = '🧑'; av.style.background = 'var(--dark3)'; }
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  el.appendChild(av); el.appendChild(bubble);
+  const msgs = document.getElementById('chat-msgs');
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderProducts(products, container) {
+  const wrap = document.createElement('div');
+  wrap.className = 'p-cards';
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'p-card';
+    card.innerHTML = `
+      <img class="p-img" src="${p.image||''}" alt="${p.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 56 56%22><rect width=%2256%22 height=%2256%22 fill=%22%23221F1C%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 font-size=%2222%22>📦</text></svg>'"/>
+      <div class="p-info"><div class="p-name">${p.name}</div><div class="p-price">${p.price}</div></div>
+      <button class="add-btn" onclick='addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Add</button>
+    `;
+    wrap.appendChild(card);
+  });
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping(container, emoji, bg) {
+  const el = document.createElement('div');
+  el.className = 'typing-wrap'; el.id = 'typing-ind';
+  el.innerHTML = `<div class="msg-av" style="background:${bg||'var(--dark3)'}">${emoji||'🤖'}</div><div class="typing-bubble"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+function hideTyping(container) { container?.querySelector('#typing-ind')?.remove(); }
+
+// ── CART ───────────────────────────────────────────────────────────
+function addToCart(p) {
+  cart.push(p);
+  document.getElementById('cart-count').textContent = cart.length;
+  const btn = document.querySelector('.cart-btn');
+  btn.style.background = '#2D6A4F44';
+  setTimeout(() => btn.style.background = '', 500);
+}
+function removeFromCart(i) { cart.splice(i,1); document.getElementById('cart-count').textContent = cart.length; renderCart(); }
+function toggleCart() {
+  const d = document.getElementById('cart-drawer'), o = document.getElementById('overlay');
+  if (!d.classList.contains('open')) { renderCart(); d.classList.add('open'); o.classList.add('show'); }
+  else { d.classList.remove('open'); o.classList.remove('show'); }
+}
+function renderCart() {
+  const list = document.getElementById('cart-list'), total = document.getElementById('cart-total');
+  if (!cart.length) { list.innerHTML = '<div class="empty-cart">Your cart is empty. Start browsing the stalls!</div>'; total.textContent = 'LKR 0'; return; }
+  list.innerHTML = ''; let t = 0;
+  cart.forEach((item,i) => {
+    const price = parseInt((item.price||'0').replace(/[^0-9]/g,''))||0; t += price;
+    const el = document.createElement('div'); el.className = 'cart-item';
+    el.innerHTML = `<span>📦</span><span class="ci-name">${item.name}</span><span class="ci-price">${item.price}</span><button class="rm-btn" onclick="removeFromCart(${i})">✕</button>`;
+    list.appendChild(el);
+  });
+  total.textContent = `LKR ${t.toLocaleString()}`;
+}
+function checkout() { if (!cart.length) return; alert('Checkout via Kapruka coming soon!'); }
+
+// ── KEYBOARD ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (['chat-input','kalu-input'].includes(document.activeElement?.id)) return;
+  if (e.key === 'Escape') { if (isZoomed) zoomOut(); else if (kaluOpen) toggleKalu(); }
+});
+
+window.addEventListener('load', initThree);
+</script>
+</body>
+</html>
