@@ -948,6 +948,22 @@ async def chat(req: ChatRequest):
     return result
 
 
+@app.get("/test/search")
+async def test_search(q: str = "flower bouquet", category: str = "flowers"):
+    """Debug endpoint — call /test/search?q=flower+bouquet&category=flowers to see raw MCP output."""
+    await mcp.ensure()
+    result = await mcp.call("kapruka_search_products", {
+        "q": q, "category": category, "in_stock_only": True, "limit": 4
+    })
+    raw = result.get("text", "")
+    parsed = parse_mcp_search_results(raw)
+    return {
+        "raw_snippet": raw[:1000],
+        "parsed_count": len(parsed),
+        "parsed": parsed,
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "mcp_session": mcp.session_id or "not initialised"}
