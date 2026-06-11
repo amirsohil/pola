@@ -436,13 +436,23 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
     server_side_products = []   # products we parsed ourselves from MCP — reliable
     max_iterations = 4
 
+    # Detect if this message is asking for products — force a search on iteration 0
+    PRODUCT_TRIGGERS = ["any ", "show", "what do you have", "options", "looking for",
+                        "suggest", "recommend", "flowers", "cakes", "need", "want",
+                        "under ", "budget", "price", "bouquet", "birthday", "give me"]
+    msg_lower = message.lower()
+    needs_search = any(t in msg_lower for t in PRODUCT_TRIGGERS) and not tool_results_accumulated
+
     async with httpx.AsyncClient(timeout=45) as client:
         for iteration in range(max_iterations):
+            # Force tool call on first iteration if user is asking for products
+            tool_choice = "required" if (iteration == 0 and needs_search) else "auto"
+
             payload = {
                 "model": GROQ_MODELS[0],
                 "messages": messages,
                 "tools": MCP_TOOLS,
-                "tool_choice": "auto",
+                "tool_choice": tool_choice,
                 "max_tokens": 600,
                 "temperature": 0.75,
             }
@@ -452,13 +462,13 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
             choice = data["choices"][0]
             msg = choice["message"]
 
+            print(f"[Agent] {stall_id} iter={iteration} tool_choice={tool_choice} has_tools={bool(msg.get('tool_calls'))} preview={str(msg.get('content',''))[:80]}")
+
             # No tool calls → final response
             if not msg.get("tool_calls"):
                 result = parse_final_response(msg.get("content", ""), tool_results_accumulated)
-                # Prefer server-side parsed products over model-generated ones
-                if server_side_products and not result["products"]:
-                    result["products"] = server_side_products
-                elif server_side_products:
+                # Always use server-side products — they are real, model products may be hallucinated
+                if server_side_products:
                     result["products"] = server_side_products
                 return result
 
