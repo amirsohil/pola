@@ -24,9 +24,8 @@ load_dotenv()
 
 GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY")
 GROQ_MODELS = [
-    "llama-3.1-8b-instant",      # fastest, try first
-    "llama-3.2-3b-preview",      # lighter fallback
-    "llama-3.3-70b-versatile",   # slower but capable
+    "llama-3.3-70b-versatile",   # best tool-use, primary
+    "llama-3.1-8b-instant",      # fast fallback
     "gemma2-9b-it",              # Google fallback
 ]
 MCP_ENDPOINT  = "https://mcp.kapruka.com/mcp"
@@ -394,12 +393,13 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
     messages.append({"role": "user", "content": message})
 
     tool_results_accumulated = []
+    server_side_products = []   # products we parsed ourselves from MCP — reliable
     max_iterations = 4
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=45) as client:
         for iteration in range(max_iterations):
             payload = {
-                "model": GROQ_MODELS[0],  # start with fastest; groq_post() handles fallback
+                "model": GROQ_MODELS[0],
                 "messages": messages,
                 "tools": MCP_TOOLS,
                 "tool_choice": "auto",
@@ -414,7 +414,13 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
 
             # No tool calls → final response
             if not msg.get("tool_calls"):
-                return parse_final_response(msg.get("content", ""), tool_results_accumulated)
+                result = parse_final_response(msg.get("content", ""), tool_results_accumulated)
+                # Prefer server-side parsed products over model-generated ones
+                if server_side_products and not result["products"]:
+                    result["products"] = server_side_products
+                elif server_side_products:
+                    result["products"] = server_side_products
+                return result
 
             # Execute tool calls
             messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": msg["tool_calls"]})
@@ -428,20 +434,170 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
 
                 print(f"[Agent] {stall_id} calling {fn_name}({fn_args})")
                 mcp_result = await mcp.call(fn_name, fn_args)
-                tool_results_accumulated.append({"tool": fn_name, "args": fn_args, "result": mcp_result.get("text", "")})
+                raw_text = mcp_result.get("text", "No result returned.")
+                tool_results_accumulated.append({"tool": fn_name, "args": fn_args, "result": raw_text})
 
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": mcp_result.get("text", "No result returned.")
-                })
+                # Server-side parse search results immediately — don't trust model to do it
+                if fn_name == "kapruka_search_products":
+                    parsed = parse_mcp_search_results(raw_text)
+                    if parsed:
+                        # Fetch images for top 4 products
+                        with_images = await enrich_with_images(parsed[:4], client)
+                        server_side_products = with_images
+                        # Give the model a clean summary instead of raw markdown
+                        summary = format_products_for_model(with_images)
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": summary
+                        })
+                    else:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": "No products found matching that search."
+                        })
+                elif fn_name == "kapruka_get_product":
+                    # Parse single product detail
+                    parsed = parse_mcp_product_detail(raw_text)
+                    if parsed:
+                        server_side_products = [parsed]
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": raw_text
+                    })
+                else:
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": raw_text
+                    })
 
-    # Fallback if max iterations hit — ask for a plain response
-    messages.append({"role": "user", "content": "[Please give your final response now based on the information gathered.]"})
+            # After tool results — tell model to respond, not search again
+            messages.append({
+                "role": "user",
+                "content": "[Products have been retrieved and will be shown to the customer automatically. Now write your response in character — describe what you found warmly and naturally. Do NOT include any JSON, XML tags, or technical syntax. Do NOT search again.]"
+            })
+
+    # Max iterations hit — force plain text response without tools
+    messages.append({"role": "user", "content": "[Please give your final response to the customer now, in character, as natural conversation only.]"})
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await groq_post(client, {"model": GROQ_MODELS[0], "messages": messages, "max_tokens": 500, "temperature": 0.75})
+        r = await groq_post(client, {"model": GROQ_MODELS[0], "messages": messages, "max_tokens": 400, "temperature": 0.75})
         data = r.json()
-    return parse_final_response(data["choices"][0]["message"].get("content", ""), tool_results_accumulated)
+    result = parse_final_response(data["choices"][0]["message"].get("content", ""), tool_results_accumulated)
+    if server_side_products:
+        result["products"] = server_side_products
+    return result
+
+def parse_mcp_search_results(text: str) -> list:
+    """
+    Parse MCP markdown search results into clean product dicts.
+    MCP returns results like:
+      ### 1. Product Name
+      - **Price:** LKR 1,500
+      - **Product ID:** 12345
+      - **URL:** https://www.kapruka.com/products/...
+    """
+    products = []
+    blocks = re.split(r'\n#{1,3}\s*\d+[\.\)]\s*', text)
+    if len(blocks) < 2:
+        blocks = re.split(r'\n\n(?=\*\*)', text)
+
+    for block in blocks[1:]:
+        if not block.strip():
+            continue
+        p = {}
+        lines = block.strip().splitlines()
+
+        for line in lines:
+            clean_line = re.sub(r'\*+', '', line).strip(' -#|')
+            if clean_line and not p.get('name'):
+                p['name'] = clean_line
+                break
+
+        for line in lines:
+            price_m = re.search(r'(?:Price|price)[:\s]*(?:LKR\s*)?(\d[\d,]+)', line)
+            if price_m and not p.get('price'):
+                p['price'] = f"LKR {price_m.group(1)}"
+            if not p.get('price'):
+                lkr_m = re.search(r'LKR\s*(\d[\d,]+)', line)
+                if lkr_m:
+                    p['price'] = f"LKR {lkr_m.group(1)}"
+            id_m = re.search(r'(?:Product ID|product_id|ID)[:\s]+(\d+)', line, re.IGNORECASE)
+            if id_m and not p.get('id'):
+                p['id'] = id_m.group(1)
+            url_id_m = re.search(r'/products/(\d+)', line)
+            if url_id_m and not p.get('id'):
+                p['id'] = url_id_m.group(1)
+            url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/\S+)', line)
+            if url_m and not p.get('url'):
+                p['url'] = url_m.group(1).rstrip(')')
+
+        if p.get('name') and (p.get('price') or p.get('id')):
+            p.setdefault('id', '')
+            p.setdefault('price', '')
+            p.setdefault('url', f"https://www.kapruka.com/products/productTOH_{p['id']}.asp" if p.get('id') else '#')
+            p.setdefault('image', '')
+            products.append(p)
+
+    return products[:6]
+
+
+def parse_mcp_product_detail(text: str) -> dict:
+    """Parse a single kapruka_get_product response."""
+    p = {}
+    for line in text.splitlines():
+        if not p.get('name'):
+            name_m = re.search(r'(?:Name|name|title)[:\s]+(.+)', line, re.IGNORECASE)
+            if name_m:
+                p['name'] = name_m.group(1).strip()
+        price_m = re.search(r'LKR\s*(\d[\d,]+)', line)
+        if price_m and not p.get('price'):
+            p['price'] = f"LKR {price_m.group(1)}"
+        id_m = re.search(r'/products/(\d+)', line)
+        if id_m and not p.get('id'):
+            p['id'] = id_m.group(1)
+        img_m = re.search(r'(https?://\S+\.(?:jpg|jpeg|png|webp))', line, re.IGNORECASE)
+        if img_m and not p.get('image'):
+            p['image'] = img_m.group(1)
+        url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/products/\S+)', line)
+        if url_m and not p.get('url'):
+            p['url'] = url_m.group(1).rstrip(')')
+    return p if p.get('name') else None
+
+
+async def enrich_with_images(products: list, client: httpx.AsyncClient) -> list:
+    """Fetch product detail for each product to get its image URL."""
+    async def fetch_image(p: dict) -> dict:
+        if not p.get('id') or p.get('image'):
+            return p
+        try:
+            result = await mcp.call("kapruka_get_product", {"product_id": p['id']})
+            detail_text = result.get("text", "")
+            img_m = re.search(r'(https?://\S+\.(?:jpg|jpeg|png|webp)[^\s\)]*)', detail_text, re.IGNORECASE)
+            if img_m:
+                p['image'] = img_m.group(1)
+            if not p.get('url') or p.get('url') == '#':
+                url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/products/\S+)', detail_text)
+                if url_m:
+                    p['url'] = url_m.group(1).rstrip(')')
+        except Exception as e:
+            print(f"[Image] Failed for {p.get('id')}: {e}")
+        return p
+
+    tasks = [fetch_image(dict(p)) for p in products]
+    return list(await asyncio.gather(*tasks))
+
+
+def format_products_for_model(products: list) -> str:
+    """Clean summary for the model — no raw markdown."""
+    if not products:
+        return "No products found."
+    lines = [f"Found {len(products)} products:"]
+    for i, p in enumerate(products, 1):
+        lines.append(f"{i}. {p.get('name','')} — {p.get('price','')} (ID: {p.get('id','')})")
+    return "\n".join(lines)
 
 
 def parse_final_response(text: str, tool_results: list) -> dict:
