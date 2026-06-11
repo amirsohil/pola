@@ -373,7 +373,9 @@ async def run_agent(stall_id: str, message: str, history: list, cart_context: li
       5. Parse products, cross-stall suggestions from final response
     """
     persona = PERSONAS.get(stall_id, "You are a helpful shopkeeper at Pola.")
-    system = persona + "\n\n" + CROSS_STALL_INSTRUCTION
+    system = persona + "\n\n" + CROSS_STALL_INSTRUCTION + """
+
+CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visible response text. Tool calls happen invisibly — your reply to the customer should read as natural conversation only. If you are searching for products, say so in plain words like "Let me check what we have..." not with any XML or code."""
 
     # Inject cart awareness
     if cart_context:
@@ -481,9 +483,16 @@ def parse_final_response(text: str, tool_results: list) -> dict:
         if tr["tool"] == "kapruka_check_delivery":
             delivery_info = {"raw": tr["result"]}
 
-    # Clean display text
+    # Clean display text — strip our custom tags AND any leaked function call syntax
     clean = re.sub(r"<products>[\s\S]*?</products>", "", text)
-    clean = re.sub(r"<cross_stall>[\s\S]*?</cross_stall>", "", clean).strip()
+    clean = re.sub(r"<cross_stall>[\s\S]*?</cross_stall>", "", clean)
+    # Strip leaked tool call XML that some models emit in their text
+    clean = re.sub(r"<function=\w+>[\s\S]*?</function>", "", clean)
+    clean = re.sub(r"<function_calls>[\s\S]*?</function_calls>", "", clean)
+    clean = re.sub(r"<invoke>[\s\S]*?</invoke>", "", clean)
+    # Strip residual leaked JSON blobs e.g. {"q": "flowers", "category": "flowers"}
+    clean = re.sub(r'\{"[a-z_]+":\s*"[^"]+"[^}]*\}', "", clean)
+    clean = re.sub(r'\s{2,}', " ", clean).strip()
 
     return {
         "reply": clean,
