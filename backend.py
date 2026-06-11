@@ -979,22 +979,6 @@ async def health():
 async def startup():
     await mcp.ensure()
     print(f"[Pola] Backend ready. MCP session: {mcp.session_id}")
-    asyncio.create_task(keep_alive())
-
-
-async def keep_alive():
-    """Ping self every 10 minutes to prevent Render free tier spin-down."""
-    import os
-    base_url = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
-    await asyncio.sleep(60)  # wait for server to fully start
-    while True:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                await client.get(f"{base_url}/health")
-                print("[Keep-alive] Pinged.")
-        except Exception as e:
-            print(f"[Keep-alive] Failed: {e}")
-        await asyncio.sleep(600)  # every 10 minutes
 
 
 if __name__ == "__main__":
