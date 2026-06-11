@@ -23,7 +23,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "YOUR_GROQ_API_KEY")
-GROQ_MODEL    = "llama-3.1-8b-instant"
+GROQ_MODELS = [
+    "llama-3.1-8b-instant",      # fastest, try first
+    "llama-3.2-3b-preview",      # lighter fallback
+    "llama-3.3-70b-versatile",   # slower but capable
+    "gemma2-9b-it",              # Google fallback
+]
 MCP_ENDPOINT  = "https://mcp.kapruka.com/mcp"
 MCP_HEADERS   = {
     "Content-Type": "application/json",
@@ -322,6 +327,40 @@ PRODUCTS: Search pharmacy and ayurvedic categories. Get product details when nee
 RULES: Ask clarifying questions before recommending. ALWAYS add "Please consult a doctor for medical advice" for anything serious.""",
 }
 
+# ── GROQ CALL WITH MODEL FALLBACK ────────────────────────────────────────────
+
+async def groq_post(client: httpx.AsyncClient, payload: dict) -> httpx.Response:
+    """
+    Try each model in GROQ_MODELS in order.
+    Falls back on 429 (rate limit) or 503 (unavailable).
+    Raises on all other errors.
+    """
+    last_error = None
+    for model in GROQ_MODELS:
+        payload["model"] = model
+        try:
+            r = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json=payload,
+            )
+            if r.status_code in (429, 503):
+                print(f"[Groq] {model} returned {r.status_code}, trying next model...")
+                last_error = r
+                continue
+            r.raise_for_status()
+            print(f"[Groq] Responded with model: {model}")
+            return r
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (429, 503):
+                print(f"[Groq] {model} rate-limited, trying next...")
+                last_error = e.response
+                continue
+            raise
+    # All models exhausted
+    raise RuntimeError(f"All Groq models failed. Last status: {last_error.status_code if last_error else 'unknown'}")
+
+
 # ── AGENTIC LOOP ──────────────────────────────────────────────────────────────
 
 async def run_agent(stall_id: str, message: str, history: list, cart_context: list, cross_stall_hint: Optional[str]) -> dict:
@@ -358,7 +397,7 @@ async def run_agent(stall_id: str, message: str, history: list, cart_context: li
     async with httpx.AsyncClient(timeout=30) as client:
         for iteration in range(max_iterations):
             payload = {
-                "model": GROQ_MODEL,
+                "model": GROQ_MODELS[0],  # start with fastest; groq_post() handles fallback
                 "messages": messages,
                 "tools": MCP_TOOLS,
                 "tool_choice": "auto",
@@ -366,12 +405,7 @@ async def run_agent(stall_id: str, message: str, history: list, cart_context: li
                 "temperature": 0.75,
             }
 
-            r = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json=payload
-            )
-            r.raise_for_status()
+            r = await groq_post(client, payload)
             data = r.json()
             choice = data["choices"][0]
             msg = choice["message"]
@@ -402,12 +436,9 @@ async def run_agent(stall_id: str, message: str, history: list, cart_context: li
 
     # Fallback if max iterations hit — ask for a plain response
     messages.append({"role": "user", "content": "[Please give your final response now based on the information gathered.]"})
-    r = await client.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-        json={"model": GROQ_MODEL, "messages": messages, "max_tokens": 500, "temperature": 0.75}
-    )
-    data = r.json()
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await groq_post(client, {"model": GROQ_MODELS[0], "messages": messages, "max_tokens": 500, "temperature": 0.75})
+        data = r.json()
     return parse_final_response(data["choices"][0]["message"].get("content", ""), tool_results_accumulated)
 
 
@@ -574,12 +605,7 @@ async def run_kalu(message: str, history: list, cart_context: list) -> dict:
     messages.append({"role": "user", "content": message})
 
     async with httpx.AsyncClient(timeout=20) as client:
-        r = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={"model": GROQ_MODEL, "messages": messages, "max_tokens": 250, "temperature": 0.85}
-        )
-        r.raise_for_status()
+        r = await groq_post(client, {"model": GROQ_MODELS[0], "messages": messages, "max_tokens": 250, "temperature": 0.85})
         text = r.json()["choices"][0]["message"]["content"]
 
     # Parse <suggest> block out of text
@@ -624,6 +650,22 @@ async def health():
 async def startup():
     await mcp.ensure()
     print(f"[Pola] Backend ready. MCP session: {mcp.session_id}")
+    asyncio.create_task(keep_alive())
+
+
+async def keep_alive():
+    """Ping self every 10 minutes to prevent Render free tier spin-down."""
+    import os
+    base_url = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
+    await asyncio.sleep(60)  # wait for server to fully start
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.get(f"{base_url}/health")
+                print("[Keep-alive] Pinged.")
+        except Exception as e:
+            print(f"[Keep-alive] Failed: {e}")
+        await asyncio.sleep(600)  # every 10 minutes
 
 
 if __name__ == "__main__":
