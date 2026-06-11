@@ -400,51 +400,53 @@ async def groq_post(client: httpx.AsyncClient, payload: dict) -> httpx.Response:
     raise RuntimeError(f"All Groq models failed. Last status: {last_error.status_code if last_error else 'unknown'}")
 
 
-def extract_search_query(message: str, category: str) -> str:
+def extract_search_query(message: str, stall_id: str) -> str:
     """
-    Build a clean search query from the user message + stall category.
-    Avoids vague queries that return unrelated results.
+    Build a search query from the user message, anchored to the stall's product domain.
+    Always returns something meaningful — never a vague or empty string.
     """
-    # Category-specific default queries when user is vague
-    DEFAULTS = {
-        "cakes":      "birthday cake",
-        "flowers":    "flower bouquet",
-        "grocery":    "fresh vegetables",
-        "giftset":    "gift box",
-        "cosmetics":  "cosmetics",
-        "electronics":"electronics",
-        "kidstoys":   "children toy",
-        "pharmacy":   "medicine",
+    # Stall-specific defaults and anchor keywords
+    STALL_CONFIG = {
+        "cakes":       {"default": "birthday cake",       "anchor": "cake",        "keywords": ["cake", "bake", "pastry", "tart"]},
+        "flowers":     {"default": "flower bouquet",      "anchor": "bouquet",     "keywords": ["flower", "bouquet", "rose", "lily", "orchid", "bloom"]},
+        "grocery":     {"default": "fresh vegetables",    "anchor": "vegetable",   "keywords": ["vegetable", "fruit", "rice", "flour", "oil", "grocery", "food"]},
+        "gifts":       {"default": "gift box",            "anchor": "gift",        "keywords": ["gift", "hamper", "chocolate", "soft toy", "personalised"]},
+        "beauty":      {"default": "cosmetics",           "anchor": "cosmetic",    "keywords": ["cosmetic", "makeup", "lipstick", "perfume", "skincare", "cream"]},
+        "electronics": {"default": "electronics",         "anchor": "electronics", "keywords": ["phone", "laptop", "headphone", "speaker", "tablet", "tv", "camera"]},
+        "kids":        {"default": "children toy",        "anchor": "toy",         "keywords": ["toy", "baby", "infant", "toddler", "child", "kids"]},
+        "pharmacy":    {"default": "medicine",            "anchor": "medicine",    "keywords": ["medicine", "tablet", "syrup", "vitamin", "supplement", "ayurvedic"]},
     }
+    cfg = STALL_CONFIG.get(stall_id, {"default": stall_id, "anchor": stall_id, "keywords": []})
 
-    # Strip filler phrases
+    # Extract meaningful product words from the message
     msg = message.lower()
-    for filler in ["any ", "do you have", "i need", "i want", "show me",
-                   "looking for", "give me", "what", "have you got",
-                   "for my", "for her", "for him", "for a", "please",
-                   "can you show", "got any", "anything"]:
-        msg = msg.replace(filler, " ")
-    msg = msg.strip(" ?.,!")
+    # Remove purely social/relational words that add noise
+    for noise in ["my wife", "my husband", "my mother", "my father", "my friend",
+                  "my daughter", "my son", "my baby", "my love", "my partner",
+                  "for her", "for him", "for them", "for a", "for my",
+                  "please", "thanks", "okay", "ok", "go on", "sure", "yes",
+                  "any ", "do you have", "have you got", "can you show",
+                  "show me", "give me", "i need", "i want", "i'd like",
+                  "looking for", "anything", "something", "options", "stuff",
+                  "you have", "you got", "do you", "have you", "in stock",
+                  "available", "what do", "what have"]:
+        msg = msg.replace(noise, " ")
+    msg = re.sub(r'\s+', " ", msg).strip(" ?.,!")
 
-    # If what's left is too short or generic, use the category default
-    if len(msg) < 4 or msg in ("flowers", "cakes", "grocery", "gifts", "beauty",
-                                "electronics", "kids", "pharmacy", "options", "help"):
-        return DEFAULTS.get(category, category)
+    # Check if useful product keywords remain
+    has_product_words = any(k in msg for k in cfg["keywords"])
 
-    # Append category keyword if not already in query
-    cat_keywords = {
-        "flowers": ["flower", "bouquet", "rose", "lily", "orchid"],
-        "cakes": ["cake", "bake"],
-        "giftset": ["gift"],
-        "cosmetics": ["cosmetic", "makeup", "perfume", "skin"],
-        "electronics": ["phone", "laptop", "tablet", "headphone", "speaker", "tv"],
-        "kidstoys": ["toy", "baby", "infant", "child"],
-        "pharmacy": ["medicine", "tablet", "syrup", "vitamin", "ayurvedic"],
-        "grocery": ["vegetable", "fruit", "rice", "flour", "oil"],
-    }
-    keywords = cat_keywords.get(category, [])
-    if keywords and not any(k in msg for k in keywords):
-        msg = f"{msg} {keywords[0]}"
+    # If message is too vague or short, use the stall default
+    if len(msg) < 3 or not has_product_words:
+        # Try to extract price hints to enrich the default
+        price_m = re.search(r'(\d{3,6})', message)
+        if price_m:
+            return f"{cfg['default']} under {price_m.group(1)}"
+        return cfg["default"]
+
+    # If message has product words but no anchor, append anchor
+    if not any(k in msg for k in cfg["keywords"][:2]):
+        msg = f"{msg} {cfg['anchor']}"
 
     return msg.strip()[:80]
 
@@ -508,7 +510,7 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
         if needs_search:
             category = STALL_CATEGORIES.get(stall_id, stall_id)
             # Build a clean search query from the user message
-            search_q = extract_search_query(message, category)
+            search_q = extract_search_query(message, stall_id)
             print(f"[PreSearch] {stall_id} → category={category} q={search_q!r}")
             try:
                 mcp_args = {"q": search_q, "in_stock_only": True, "limit": 6}
