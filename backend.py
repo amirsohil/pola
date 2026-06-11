@@ -492,10 +492,11 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
                         "bouquet", "birthday", "give me", "have you", "do you have",
                         "flowers", "cake", "groceri", "medicine", "toy", "gift",
                         "cosmetic", "perfume", "electronic", "phone", "laptop"]
+    # MCP category filter doesn't work with Kapruka slugs — use empty string
+    # and rely on search query to target the right products
     STALL_CATEGORIES = {
-        "cakes": "cakes", "flowers": "flowers", "grocery": "grocery",
-        "gifts": "giftset", "beauty": "cosmetics", "electronics": "electronics",
-        "kids": "kidstoys", "pharmacy": "pharmacy"
+        "cakes": "", "flowers": "", "grocery": "", "gifts": "",
+        "beauty": "", "electronics": "", "kids": "", "pharmacy": ""
     }
     msg_lower = message.lower()
     needs_search = any(t in msg_lower for t in PRODUCT_TRIGGERS)
@@ -510,10 +511,10 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
             search_q = extract_search_query(message, category)
             print(f"[PreSearch] {stall_id} → category={category} q={search_q!r}")
             try:
-                mcp_result = await mcp.call("kapruka_search_products", {
-                    "q": search_q, "category": category,
-                    "in_stock_only": True, "limit": 6
-                })
+                mcp_args = {"q": search_q, "in_stock_only": True, "limit": 6}
+                if category:  # only pass category if non-empty
+                    mcp_args["category"] = category
+                mcp_result = await mcp.call("kapruka_search_products", mcp_args)
                 raw = mcp_result.get("text", "")
                 print(f"[PreSearch] Raw snippet: {raw[:300]}")
                 parsed = parse_mcp_search_results(raw)
@@ -634,51 +635,44 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
 def parse_mcp_search_results(text: str) -> list:
     """
     Parse MCP markdown search results into clean product dicts.
-    MCP returns results like:
-      ### 1. Product Name
-      - **Price:** LKR 1,500
-      - **Product ID:** 12345
-      - **URL:** https://www.kapruka.com/products/...
+    Actual MCP format:
+      **1. Product Name**
+         ID: `FLOWERS00T2075` · LKR 5,210 · In stock
+         [View product](https://www.kapruka.com/buyonline/...)
     """
     products = []
-    blocks = re.split(r'\n#{1,3}\s*\d+[\.\)]\s*', text)
-    if len(blocks) < 2:
-        blocks = re.split(r'\n\n(?=\*\*)', text)
+    blocks = re.split(r'\n(?=\*\*\d+\.)', text)
 
-    for block in blocks[1:]:
-        if not block.strip():
+    for block in blocks:
+        if not re.match(r'\*\*\d+\.', block.strip()):
             continue
         p = {}
         lines = block.strip().splitlines()
+        full = ' '.join(lines)
 
-        for line in lines:
-            clean_line = re.sub(r'\*+', '', line).strip(' -#|')
-            if clean_line and not p.get('name'):
-                p['name'] = clean_line
-                break
+        # Name — strip **N. prefix and trailing **
+        name_m = re.match(r'\*+\d+\.\s*(.+?)\*+\s*$', lines[0])
+        if name_m:
+            p['name'] = name_m.group(1).strip()
 
-        for line in lines:
-            price_m = re.search(r'(?:Price|price)[:\s]*(?:LKR\s*)?(\d[\d,]+)', line)
-            if price_m and not p.get('price'):
-                p['price'] = f"LKR {price_m.group(1)}"
-            if not p.get('price'):
-                lkr_m = re.search(r'LKR\s*(\d[\d,]+)', line)
-                if lkr_m:
-                    p['price'] = f"LKR {lkr_m.group(1)}"
-            id_m = re.search(r'(?:Product ID|product_id|ID)[:\s]+(\d+)', line, re.IGNORECASE)
-            if id_m and not p.get('id'):
-                p['id'] = id_m.group(1)
-            url_id_m = re.search(r'/products/(\d+)', line)
-            if url_id_m and not p.get('id'):
-                p['id'] = url_id_m.group(1)
-            url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/\S+)', line)
-            if url_m and not p.get('url'):
-                p['url'] = url_m.group(1).rstrip(')')
+        # ID — backtick format: `FLOWERS00T2075`
+        id_m = re.search(r'ID:\s*`([A-Z0-9]+)`', full, re.IGNORECASE)
+        if id_m:
+            p['id'] = id_m.group(1)
 
-        if p.get('name') and (p.get('price') or p.get('id')):
+        # Price
+        price_m = re.search(r'LKR\s*([\d,]+)', full)
+        if price_m:
+            p['price'] = f"LKR {price_m.group(1)}"
+
+        # URL
+        url_m = re.search(r'\[View product\]\((https?://[^)]+)\)', full)
+        if url_m:
+            p['url'] = url_m.group(1)
+
+        if p.get('name') and p.get('price'):
             p.setdefault('id', '')
-            p.setdefault('price', '')
-            p.setdefault('url', f"https://www.kapruka.com/products/productTOH_{p['id']}.asp" if p.get('id') else '#')
+            p.setdefault('url', '#')
             p.setdefault('image', '')
             products.append(p)
 
@@ -686,26 +680,26 @@ def parse_mcp_search_results(text: str) -> list:
 
 
 def parse_mcp_product_detail(text: str) -> dict:
-    """Parse a single kapruka_get_product response."""
+    """Parse a single kapruka_get_product response for image URL."""
     p = {}
-    for line in text.splitlines():
-        if not p.get('name'):
-            name_m = re.search(r'(?:Name|name|title)[:\s]+(.+)', line, re.IGNORECASE)
-            if name_m:
-                p['name'] = name_m.group(1).strip()
-        price_m = re.search(r'LKR\s*(\d[\d,]+)', line)
-        if price_m and not p.get('price'):
-            p['price'] = f"LKR {price_m.group(1)}"
-        id_m = re.search(r'/products/(\d+)', line)
-        if id_m and not p.get('id'):
-            p['id'] = id_m.group(1)
-        img_m = re.search(r'(https?://\S+\.(?:jpg|jpeg|png|webp))', line, re.IGNORECASE)
-        if img_m and not p.get('image'):
-            p['image'] = img_m.group(1)
-        url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/products/\S+)', line)
-        if url_m and not p.get('url'):
-            p['url'] = url_m.group(1).rstrip(')')
-    return p if p.get('name') else None
+    full = text.replace("\n", " ")
+    # Image — any jpg/png/webp URL
+    img_m = re.search(r'(https?://\S+\.(?:jpg|jpeg|png|webp)[^\s)]*)', full, re.IGNORECASE)
+    if img_m:
+        p['image'] = img_m.group(1)
+    # Name
+    name_m = re.search(r'(?:Name|Title)[:\s]+([^\n|]+)', full, re.IGNORECASE)
+    if name_m:
+        p['name'] = name_m.group(1).strip()
+    # Price
+    price_m = re.search(r'LKR\s*([\d,]+)', full)
+    if price_m:
+        p['price'] = f"LKR {price_m.group(1)}"
+    # URL — kapruka buyonline or products URL
+    url_m = re.search(r'(https?://(?:www\.)?kapruka\.com/(?:buyonline|products)/[^\s)]+)', full)
+    if url_m:
+        p['url'] = url_m.group(1)
+    return p if p.get('image') or p.get('name') else None
 
 
 async def enrich_with_images(products: list, client: httpx.AsyncClient) -> list:
@@ -948,17 +942,27 @@ async def chat(req: ChatRequest):
     return result
 
 
+@app.get("/test/product")
+async def test_product(id: str = "FLOWERS00T2075"):
+    """Debug endpoint — inspect raw product detail response."""
+    await mcp.ensure()
+    result = await mcp.call("kapruka_get_product", {"product_id": id})
+    raw = result.get("text", "")
+    detail = parse_mcp_product_detail(raw)
+    return {"raw_snippet": raw[:2000], "parsed": detail}
+
+
 @app.get("/test/search")
-async def test_search(q: str = "flower bouquet", category: str = "flowers"):
-    """Debug endpoint — call /test/search?q=flower+bouquet&category=flowers to see raw MCP output."""
+async def test_search(q: str = "rose bouquet"):
+    """Debug endpoint — call /test/search?q=rose+bouquet to see raw MCP output."""
     await mcp.ensure()
     result = await mcp.call("kapruka_search_products", {
-        "q": q, "category": category, "in_stock_only": True, "limit": 4
+        "q": q, "in_stock_only": True, "limit": 4
     })
     raw = result.get("text", "")
     parsed = parse_mcp_search_results(raw)
     return {
-        "raw_snippet": raw[:1000],
+        "raw_snippet": raw[:1500],
         "parsed_count": len(parsed),
         "parsed": parsed,
     }
