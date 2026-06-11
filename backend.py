@@ -400,6 +400,55 @@ async def groq_post(client: httpx.AsyncClient, payload: dict) -> httpx.Response:
     raise RuntimeError(f"All Groq models failed. Last status: {last_error.status_code if last_error else 'unknown'}")
 
 
+def extract_search_query(message: str, category: str) -> str:
+    """
+    Build a clean search query from the user message + stall category.
+    Avoids vague queries that return unrelated results.
+    """
+    # Category-specific default queries when user is vague
+    DEFAULTS = {
+        "cakes":      "birthday cake",
+        "flowers":    "flower bouquet",
+        "grocery":    "fresh vegetables",
+        "giftset":    "gift box",
+        "cosmetics":  "cosmetics",
+        "electronics":"electronics",
+        "kidstoys":   "children toy",
+        "pharmacy":   "medicine",
+    }
+
+    # Strip filler phrases
+    msg = message.lower()
+    for filler in ["any ", "do you have", "i need", "i want", "show me",
+                   "looking for", "give me", "what", "have you got",
+                   "for my", "for her", "for him", "for a", "please",
+                   "can you show", "got any", "anything"]:
+        msg = msg.replace(filler, " ")
+    msg = msg.strip(" ?.,!")
+
+    # If what's left is too short or generic, use the category default
+    if len(msg) < 4 or msg in ("flowers", "cakes", "grocery", "gifts", "beauty",
+                                "electronics", "kids", "pharmacy", "options", "help"):
+        return DEFAULTS.get(category, category)
+
+    # Append category keyword if not already in query
+    cat_keywords = {
+        "flowers": ["flower", "bouquet", "rose", "lily", "orchid"],
+        "cakes": ["cake", "bake"],
+        "giftset": ["gift"],
+        "cosmetics": ["cosmetic", "makeup", "perfume", "skin"],
+        "electronics": ["phone", "laptop", "tablet", "headphone", "speaker", "tv"],
+        "kidstoys": ["toy", "baby", "infant", "child"],
+        "pharmacy": ["medicine", "tablet", "syrup", "vitamin", "ayurvedic"],
+        "grocery": ["vegetable", "fruit", "rice", "flour", "oil"],
+    }
+    keywords = cat_keywords.get(category, [])
+    if keywords and not any(k in msg for k in keywords):
+        msg = f"{msg} {keywords[0]}"
+
+    return msg.strip()[:80]
+
+
 # ── AGENTIC LOOP ──────────────────────────────────────────────────────────────
 
 async def run_agent(stall_id: str, message: str, history: list, cart_context: list, cross_stall_hint: Optional[str]) -> dict:
@@ -436,38 +485,80 @@ CRITICAL: Never include raw function call syntax, XML tags, or JSON in your visi
     server_side_products = []   # products we parsed ourselves from MCP — reliable
     max_iterations = 4
 
-    # Detect if this message is asking for products — force a search on iteration 0
-    PRODUCT_TRIGGERS = ["any ", "show", "what do you have", "options", "looking for",
-                        "suggest", "recommend", "flowers", "cakes", "need", "want",
-                        "under ", "budget", "price", "bouquet", "birthday", "give me"]
+    # ── PRE-SEARCH: if the message looks like a product request, search MCP ourselves ──
+    # This removes the model from the search decision entirely — it cannot hallucinate
+    PRODUCT_TRIGGERS = ["any ", "show", "what", "option", "looking for", "suggest",
+                        "recommend", "need", "want", "under ", "budget", "price",
+                        "bouquet", "birthday", "give me", "have you", "do you have",
+                        "flowers", "cake", "groceri", "medicine", "toy", "gift",
+                        "cosmetic", "perfume", "electronic", "phone", "laptop"]
+    STALL_CATEGORIES = {
+        "cakes": "cakes", "flowers": "flowers", "grocery": "grocery",
+        "gifts": "giftset", "beauty": "cosmetics", "electronics": "electronics",
+        "kids": "kidstoys", "pharmacy": "pharmacy"
+    }
     msg_lower = message.lower()
-    needs_search = any(t in msg_lower for t in PRODUCT_TRIGGERS) and not tool_results_accumulated
+    needs_search = any(t in msg_lower for t in PRODUCT_TRIGGERS)
+
+    server_side_products = []
 
     async with httpx.AsyncClient(timeout=45) as client:
-        for iteration in range(max_iterations):
-            # Force tool call on first iteration if user is asking for products
-            tool_choice = "required" if (iteration == 0 and needs_search) else "auto"
+        # Pre-search: call MCP directly, don't wait for the model to decide
+        if needs_search:
+            category = STALL_CATEGORIES.get(stall_id, stall_id)
+            # Build a clean search query from the user message
+            search_q = extract_search_query(message, category)
+            print(f"[PreSearch] {stall_id} → category={category} q={search_q!r}")
+            try:
+                mcp_result = await mcp.call("kapruka_search_products", {
+                    "q": search_q, "category": category,
+                    "in_stock_only": True, "limit": 6
+                })
+                raw = mcp_result.get("text", "")
+                print(f"[PreSearch] Raw snippet: {raw[:300]}")
+                parsed = parse_mcp_search_results(raw)
+                if parsed:
+                    enriched = await enrich_with_images(parsed[:4], client)
+                    server_side_products = enriched
+                    # Inject clean product summary into messages so model knows what was found
+                    summary = format_products_for_model(enriched)
+                    messages.append({
+                        "role": "system",
+                        "content": f"SEARCH RESULTS (already retrieved, do NOT search again):\n{summary}\n\nPresent these to the customer in character. Do not make up other products."
+                    })
+                    print(f"[PreSearch] Found {len(enriched)} products")
+                else:
+                    messages.append({
+                        "role": "system",
+                        "content": "Search returned no results for that query. Tell the customer honestly and ask them to describe what they need differently."
+                    })
+            except Exception as e:
+                print(f"[PreSearch] Error: {e}")
 
+        for iteration in range(max_iterations):
+            # Only offer tools if we haven't already pre-searched
+            include_tools = not needs_search
             payload = {
                 "model": GROQ_MODELS[0],
                 "messages": messages,
-                "tools": MCP_TOOLS,
-                "tool_choice": tool_choice,
-                "max_tokens": 600,
+                "max_tokens": 500,
                 "temperature": 0.75,
             }
+            if include_tools:
+                payload["tools"] = MCP_TOOLS
+                payload["tool_choice"] = "auto"
 
             r = await groq_post(client, payload)
             data = r.json()
             choice = data["choices"][0]
             msg = choice["message"]
 
-            print(f"[Agent] {stall_id} iter={iteration} tool_choice={tool_choice} has_tools={bool(msg.get('tool_calls'))} preview={str(msg.get('content',''))[:80]}")
+            print(f"[Agent] {stall_id} iter={iteration} has_tools={bool(msg.get('tool_calls'))} preview={str(msg.get('content',''))[:80]}")
 
             # No tool calls → final response
             if not msg.get("tool_calls"):
                 result = parse_final_response(msg.get("content", ""), tool_results_accumulated)
-                # Always use server-side products — they are real, model products may be hallucinated
+                # Always prefer server-side products — model products may be hallucinated
                 if server_side_products:
                     result["products"] = server_side_products
                 return result
