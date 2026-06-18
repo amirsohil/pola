@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pola — Kapruka's Virtual Market</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --orange:#E8521A;--orange-d:#c44214;--saffron:#F4C430;
+  --dark:#0E0D0C;--dark2:#181614;--dark3:#221F1C;--dark4:#2C2925;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#F2EDE6;--text2:#9B9288;--text3:#5C5750;
+  --panel:420px;--nav-h:56px;
+  --font-h:'Baloo 2',system-ui,sans-serif;--font-b:'Inter',system-ui,sans-serif;--font-hand:'Caveat',cursive;
+  /* Ghibli-leaning accent palette for chat/sudu/cart surfaces */
+  --paper:#F0E1BC;--paper2:#E9D7AE;--ink:#2B2014;--ink2:#4A3823;
+  --moss:#748A5B;--moss-d:#5C7048;--glow:rgba(244,196,48,0.4);
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body{background:var(--dark);color:var(--text);font-family:var(--font-b);overflow:hidden;height:100vh}
+button,input{font-family:inherit;color:inherit;background:none;border:none;outline:none}
+button{cursor:pointer;transition:all 0.2s ease}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:linear-gradient(to bottom,rgba(14,13,12,0.95),rgba(14,13,12,0.8));backdrop-filter:blur(10px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;z-index:100;box-shadow:0 4px 30px rgba(0,0,0,0.4)}
+.nav-logo{font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.nav-logo span{color:var(--saffron);font-size:13px;font-family:var(--font-b);font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:rgba(244,196,48,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(244,196,48,0.2);margin-left:4px}
+.nav-actions{display:flex;align-items:center;gap:12px;margin-left:auto}
+.cart-btn{background:var(--dark3);border:1px solid var(--border2);padding:8px 16px;border-radius:30px;display:flex;align-items:center;gap:8px;font-weight:500;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,0.2)}
+.cart-btn:hover{background:var(--dark4);border-color:rgba(255,255,255,0.2)}
+.cart-badge{background:var(--orange);color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center}
+.sudu-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#FFFFFF;padding:8px 16px;border-radius:30px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.sudu-btn:hover{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.4)}
+
+/* ── THREE.JS WORLD CONTAINER ── */
+#three-container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1}
+#labels-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.canvas-label{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:auto;cursor:pointer;transition:opacity 0.25s ease;will-change:transform,opacity}
+.label-name{background:rgba(58,42,26,0.7);backdrop-filter:blur(5px);border:1px solid rgba(255,238,210,0.18);border-bottom:none;padding:4px 12px 2px;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;color:#F5EBD8;margin-top:4px;white-space:nowrap;box-shadow:0 4px 15px rgba(0,0,0,0.3);transition:border-color 0.2s}
+.canvas-label:hover .label-name{border-color:var(--saffron)}
+.canvas-label.active .label-name{border-color:var(--orange);background:rgba(74,54,32,0.78)}
+.label-role{font-size:11px;color:#FBF1DC;margin-top:0;font-weight:600;background:rgba(58,42,26,0.72);backdrop-filter:blur(5px);border:1px solid rgba(255,238,210,0.22);border-top:1px solid rgba(255,255,255,0.08);padding:3px 13px 5px;border-radius:0 0 8px 8px;white-space:nowrap;box-shadow:0 4px 15px rgba(0,0,0,0.3)}
+
+/* ── BACK BUTTON & OVERLAY ── */
+.back-btn{position:fixed;top:calc(var(--nav-h) + 20px);left:24px;z-index:10;background:rgba(24,22,20,0.9);border:1px solid var(--border2);backdrop-filter:blur(8px);padding:10px 18px;border-radius:30px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);opacity:0;pointer-events:none;transform:translateY(-10px);transition:all 0.3s cubic-bezier(0.16,1,0.3,1)}
+.back-btn.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+.back-btn:hover{background:var(--dark3);border-color:rgba(255,255,255,0.2)}
+#zoom-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:3;background:rgba(14,13,12,0.4);opacity:0;pointer-events:none;transition:opacity 0.4s ease}
+#zoom-overlay.active{opacity:1;pointer-events:auto}
+
+/* ── AGE GATE MODAL ── */
+.age-gate-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(10,6,3,0.78);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease;}
+.age-gate-overlay.show{opacity:1;pointer-events:auto;}
+.age-modal{background-color:rgba(34,25,17,0.96);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.06),transparent 50%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;padding:32px;border-radius:20px;border:1px solid rgba(244,196,48,0.25);width:380px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.08);transform:translateY(20px);transition:transform 0.3s ease;}
+.age-gate-overlay.show .age-modal{transform:translateY(0);}
+.age-title{font-family:var(--font-h);font-size:24px;font-weight:800;color:var(--orange);margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.age-desc{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5;}
+.age-input{width:100%;background:rgba(20,15,10,0.55);border:1px solid rgba(244,196,48,0.18);padding:14px;border-radius:12px;color:var(--text);font-family:var(--font-b);font-size:15px;margin-bottom:16px;}
+.age-input:focus{border-color:var(--saffron);outline:none;}
+.age-error{color:#E74C3C;font-size:12px;margin-bottom:16px;display:none;font-weight:500;}
+.age-actions{display:flex;gap:12px;}
+.age-btn{flex:1;padding:12px;border-radius:12px;font-weight:600;font-size:14px;}
+.age-btn.cancel{background:rgba(36,27,18,0.7);border:1px solid rgba(244,196,48,0.16);}
+.age-btn.cancel:hover{background:rgba(46,35,24,0.85);}
+.age-btn.enter{background:var(--orange);color:white;box-shadow:0 4px 15px rgba(232,82,26,0.3);}
+.age-btn.enter:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35);}
+
+/* ── CHAT PANEL ── */
+.chat-panel{position:fixed;top:var(--nav-h);right:0;bottom:0;width:var(--panel);background-color:rgba(34,25,17,0.93);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.05),transparent 45%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;backdrop-filter:blur(20px);border-left:1px solid rgba(244,196,48,0.1);z-index:20;transform:translateX(100%);transition:transform 0.45s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:-10px 0 40px rgba(0,0,0,0.5)}
+.chat-panel.open{transform:translateX(0)}
+.ch-header{padding:20px 24px;border-bottom:1px solid transparent;box-shadow:0 1px 0 rgba(244,196,48,0.16),0 14px 22px -16px rgba(244,196,48,0.12);display:flex;align-items:center;gap:14px}
+.ch-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid rgba(255,238,210,0.25);box-shadow:0 0 0 3px rgba(244,196,48,0.08),0 0 16px rgba(244,196,48,0.22)}
+.ch-title{flex:1}
+.ch-name{font-family:var(--font-h);font-size:18px;font-weight:700;line-height:1.2}
+.ch-role{font-family:var(--font-hand);font-size:15px;font-weight:600;color:var(--saffron);margin-top:1px;letter-spacing:0.2px}
+.close-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text2)}
+.close-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.chat-msgs{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+.msg{display:flex;gap:12px;max-width:85%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;border:1px solid rgba(255,238,210,0.2);box-shadow:0 0 10px rgba(244,196,48,0.18)}
+.msg-bubble{background-color:var(--paper);background-image:var(--grain);background-blend-mode:multiply;background-size:180px 180px;border:1px solid rgba(43,32,20,0.12);padding:12px 16px;border-radius:18px 18px 18px 5px;font-size:14px;line-height:1.5;color:var(--ink);box-shadow:0 6px 16px -8px rgba(0,0,0,0.45),0 1px 0 rgba(255,255,255,0.06) inset}
+.msg.user .msg-bubble{background-color:var(--orange);background-image:none;border-color:transparent;color:#FFF8EC;border-radius:18px 18px 5px 18px}
+
+/* Category Activation Chips Matrix */
+.pavilion-chips-box{display:flex;flex-direction:column;gap:8px;padding:4px 0}
+.subcat-chip{background:rgba(244,196,48,0.05);border:1px solid rgba(244,196,48,0.18);padding:12px;border-radius:12px;cursor:pointer;transition:all 0.2s ease-in-out;text-align:left}
+.subcat-chip:hover{border-color:var(--saffron);background:rgba(244,196,48,0.1)}
+.subcat-chip.active{border-color:var(--moss);background:rgba(116,138,91,0.14)}
+
+/* Product cards */
+.p-cards{display:grid;grid-template-columns:1fr;gap:12px;width:100%;margin:4px 0}
+.p-card{background:rgba(36,27,18,0.7);border:1px solid rgba(244,196,48,0.14);border-radius:14px;padding:10px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 15px rgba(0,0,0,0.15)}
+.p-img{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--dark3);flex-shrink:0}
+.p-info{flex:1;min-width:0}
+.p-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-price{font-size:12px;color:var(--saffron);font-weight:700;margin-top:3px}
+.add-btn{background:rgba(116,138,91,0.12);border:1px solid var(--moss);color:#D9E6CC;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:6px 12px;border-radius:20px}
+.add-btn:hover{background:var(--moss-d);border-color:transparent;color:white}
+
+/* Typing */
+.typing-wrap{display:flex;gap:12px;align-items:center}
+.typing-bubble{background-color:var(--paper);background-image:var(--grain);background-blend-mode:multiply;background-size:180px 180px;border:1px solid rgba(43,32,20,0.12);padding:12px 18px;border-radius:18px 18px 18px 5px;display:flex;gap:4px;align-items:center}
+.t-dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:t-bounce 1.4s infinite ease-in-out both}
+.t-dot:nth-child(2){animation-delay:0.2s}.t-dot:nth-child(3){animation-delay:0.4s}
+@keyframes t-bounce{0%,80%,100%{transform:scale(0.6);opacity:0.5}40%{transform:scale(1.2);background:var(--saffron);opacity:1}}
+
+.ch-input-wrap{padding:20px 24px;border-top:1px solid transparent;box-shadow:0 -1px 0 rgba(244,196,48,0.12);background:rgba(28,21,14,0.55);display:flex;gap:10px;align-items:center}
+.ch-field{flex:1;background:rgba(20,15,10,0.55);border:1px solid rgba(244,196,48,0.16);padding:12px 16px;border-radius:24px;font-size:14px;transition:border-color 0.2s;color:var(--text)}
+.ch-field::placeholder{color:var(--text3)}
+.ch-field:focus{border-color:var(--saffron)}
+.send-btn{width:42px;height:42px;border-radius:50%;background:rgba(244,196,48,0.1);border:1px solid rgba(244,196,48,0.25);display:flex;align-items:center;justify-content:center;font-size:14px}
+.send-btn:hover:not(:disabled){background:var(--orange);color:white;border-color:transparent;box-shadow:0 0 16px rgba(244,196,48,0.35)}
+.send-btn:disabled{opacity:0.3;cursor:not-allowed}
+
+/* ── SUDU PANEL ── */
+.sudu-panel{position:fixed;bottom:-470px;left:50%;transform:translateX(-50%);width:500px;height:440px;background-color:rgba(30,22,15,0.95);background-image:var(--grain),linear-gradient(160deg,rgba(244,196,48,0.06),transparent 50%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;backdrop-filter:blur(20px);border:1px solid rgba(244,196,48,0.16);border-bottom:none;border-radius:24px 24px 0 0;z-index:40;transition:bottom 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,0.6)}
+.sudu-panel.open{bottom:0}
+.sudu-header{padding:16px 20px;border-bottom:1px solid transparent;box-shadow:0 1px 0 rgba(244,196,48,0.16);display:flex;align-items:center;justify-content:space-between}
+.sudu-header-left{display:flex;align-items:center;gap:10px}
+.sudu-avatar{width:36px;height:36px;border-radius:50%;background:rgba(244,196,48,0.12);border:1px solid rgba(244,196,48,0.3);box-shadow:0 0 14px rgba(244,196,48,0.25);display:flex;align-items:center;justify-content:center;font-size:18px}
+.sudu-title{font-family:var(--font-h);font-size:16px;font-weight:700;color:#FFFFFF}
+.sudu-sub{font-family:var(--font-hand);font-size:14px;font-weight:600;color:var(--saffron)}
+.sudu-msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:var(--dark3) transparent}
+.sudu-msg{background-color:var(--paper);background-image:var(--grain);background-blend-mode:multiply;background-size:180px 180px;border:1px solid rgba(43,32,20,0.12);padding:10px 14px;border-radius:14px 14px 14px 4px;font-size:13.5px;max-width:85%;line-height:1.5;color:var(--ink);box-shadow:0 6px 14px -8px rgba(0,0,0,0.4)}
+.sudu-msg.user{align-self:flex-end;background:var(--orange);background-image:none;border-color:transparent;color:#FFF8EC;border-radius:14px 14px 4px 14px}
+.sudu-chips{padding:0 20px 8px;display:flex;gap:8px;flex-wrap:wrap}
+.sudu-chip{background:rgba(244,196,48,0.05);border:1px solid rgba(244,196,48,0.2);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;color:var(--text2)}
+.sudu-chip:hover{background:rgba(116,138,91,0.18);border-color:var(--moss);color:#FFF}
+.sudu-input-wrap{padding:12px 20px 20px;display:flex;gap:10px}
+.sudu-send{width:42px;height:42px;border-radius:50%;background:rgba(244,196,48,0.1);border:1px solid rgba(244,196,48,0.25);display:flex;align-items:center;justify-content:center;font-size:14px;color:#FFF}
+.sudu-send:hover{background:var(--orange);color:#FFF;box-shadow:0 0 16px rgba(244,196,48,0.35)}
+.sudu-send:disabled{opacity:0.3;cursor:not-allowed}
+
+/* ── CART ── */
+.overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:105;opacity:0;pointer-events:none;transition:opacity 0.3s}
+.overlay.show{opacity:1;pointer-events:auto}
+.cart-drawer{position:fixed;top:var(--nav-h);right:-400px;bottom:0;width:380px;background-color:rgba(30,22,15,0.95);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.05),transparent 45%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;border-left:1px solid rgba(244,196,48,0.1);z-index:110;transition:right 0.4s cubic-bezier(0.16,1,0.3,1);display:flex;flex-direction:column;box-shadow:-10px 0 40px rgba(0,0,0,0.5)}
+.cart-drawer.open{right:0}
+.cart-header{padding:20px 24px;border-bottom:1px solid transparent;box-shadow:0 1px 0 rgba(244,196,48,0.16);display:flex;align-items:center;justify-content:space-between}
+.cart-title{font-family:var(--font-h);font-size:20px;font-weight:700;color:var(--saffron)}
+.cart-list{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:12px}
+.cart-item{background:rgba(36,27,18,0.65);border:1px solid rgba(244,196,48,0.14);padding:12px 16px;border-radius:12px;display:flex;align-items:center;gap:12px}
+.ci-name{flex:1;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-price{font-size:13px;color:var(--saffron);font-weight:700}
+.rm-btn{color:var(--text3);font-size:12px;padding:4px}
+.rm-btn:hover{color:var(--orange)}
+.cart-footer{padding:24px;border-top:1px solid transparent;box-shadow:0 -1px 0 rgba(244,196,48,0.12);background:rgba(20,15,10,0.4)}
+.cf-row{display:flex;justify-content:space-between;margin-bottom:16px;font-weight:600;font-size:15px}
+.checkout-btn{width:100%;background:var(--orange);color:white;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3)}
+.checkout-btn:hover{background:var(--orange-d)}
+.empty-cart{text-align:center;color:var(--text3);font-size:13px;margin-top:40px}
+
+/* ── PRODUCT LIGHTBOX ── */
+.lightbox-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(10,6,3,0.78);backdrop-filter:blur(8px);z-index:150;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.3s ease;}
+.lightbox-overlay.show{opacity:1;pointer-events:auto;}
+.lightbox-card{position:relative;width:100%;max-width:380px;max-height:85vh;overflow-y:auto;background-color:rgba(34,25,17,0.97);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.06),transparent 50%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;border:1px solid rgba(244,196,48,0.22);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.08);transform:translateY(20px);transition:transform 0.3s ease;}
+.lightbox-overlay.show .lightbox-card{transform:translateY(0);}
+.lb-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(20,15,10,0.6);border:1px solid rgba(244,196,48,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);z-index:2}
+.lb-close:hover{background:rgba(20,15,10,0.85);color:var(--text)}
+.lb-img-wrap{width:100%;aspect-ratio:1/1;background:var(--dark3);display:flex;align-items:center;justify-content:center;border-radius:20px 20px 0 0;overflow:hidden}
+.lb-img{width:100%;height:100%;object-fit:contain}
+.lb-body{padding:22px}
+.lb-name{font-family:var(--font-h);font-size:19px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:6px}
+.lb-price{font-size:16px;font-weight:700;color:var(--saffron);margin-bottom:14px}
+.lb-desc{font-size:13.5px;line-height:1.6;color:var(--text2);margin-bottom:18px;white-space:pre-line}
+.lb-add-btn{width:100%;background:var(--orange);color:white;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3)}
+.lb-add-btn:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35)}
+
+/* ── DESKTOP-ONLY GATE ── */
+/* Pola's chat/Sudu/cart panels use fixed widths sized for desktop and the
+   3D town needs real screen space to read well, so narrow viewports get a
+   friendly redirect instead of an overlapping, broken layout. */
+.mobile-gate{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:300;background-color:rgba(20,15,10,0.97);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.06),transparent 55%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;}
+.mobile-gate-icon{font-size:42px;margin-bottom:16px}
+.mobile-gate-title{font-family:var(--font-h);font-size:22px;font-weight:800;color:var(--saffron);margin-bottom:12px;width:100%;max-width:320px;word-wrap:break-word}
+.mobile-gate-desc{font-size:14px;line-height:1.6;color:var(--text2);width:100%;max-width:320px;margin-bottom:24px;word-wrap:break-word}
+.mobile-gate-continue{font-family:var(--font-hand);font-size:16px;font-weight:600;color:var(--text3);text-decoration:underline;cursor:pointer;background:none;border:none}
+.mobile-gate-continue:hover{color:var(--text2)}
+@media (max-width:760px){ .mobile-gate{display:flex} }
+</style>
+</head>
+<body>
+
+<div class="mobile-gate" id="mobile-gate">
+  <div class="mobile-gate-icon">🖥️</div>
+  <div class="mobile-gate-title">Pola is built for desktop</div>
+  <div class="mobile-gate-desc">This is a 3D market town with a fair bit going on — it's much happier on a bigger screen. Pull it up on a laptop or desktop for the full experience.</div>
+  <button class="mobile-gate-continue" onclick="document.getElementById('mobile-gate').style.display='none'">Continue anyway →</button>
+</div>
+
+<nav class="nav">
+  <div class="nav-logo">⛺ Pola <span>Kapruka Market</span></div>
+  <div class="nav-actions">
+    <button class="sudu-btn" onclick="toggleSudu()">🐱 Ask Sudu</button>
+    <button class="cart-btn" onclick="toggleCart()">🛒 Cart <span class="cart-badge" id="cart-count">0</span></button>
+  </div>
+</nav>
+
+<button class="back-btn" id="back-btn" onclick="zoomOut()">← Back to Courtyard</button>
+<div id="zoom-overlay" onclick="zoomOut()"></div>
+<div id="three-container"></div>
+<div id="labels-layer"></div>
+
+<div class="age-gate-overlay" id="age-gate">
+  <div class="age-modal">
+    <div class="age-title"><span>🔞</span> Age Verification</div>
+    <div class="age-desc">This pavilion contains age-restricted lifestyle and wellness items. Please verify your Date of Birth to enter.</div>
+    <input type="date" class="age-input" id="dob-input" max="2026-06-12">
+    <div class="age-error" id="age-error">You must be 21 or older to enter.</div>
+    <div class="age-actions">
+      <button class="age-btn cancel" onclick="closeAgeGate()">Go Back</button>
+      <button class="age-btn enter" onclick="verifyAge()">Enter Pavilion</button>
+    </div>
+  </div>
+</div>
+
+<div class="chat-panel" id="chat-panel">
+  <div class="ch-header">
+    <div class="ch-av" id="ch-av"></div>
+    <div class="ch-title">
+      <div class="ch-name" id="ch-name">...</div>
+      <div class="ch-role" id="ch-role">...</div>
+    </div>
+    <button class="close-btn" onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs"></div>
+  <div class="ch-input-wrap">
+    <input type="text" class="ch-field" id="chat-input" placeholder="Select a category channel..." onkeydown="if(event.key==='Enter') sendMsg()"/>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()">➔</button>
+  </div>
+</div>
+
+<div class="sudu-panel" id="sudu-panel">
+  <div class="sudu-header">
+    <div class="sudu-header-left">
+      <div class="sudu-avatar">🐱</div>
+      <div>
+        <div class="sudu-title">Sudu</div>
+        <div class="sudu-sub">Pola's guide — knows every section</div>
+      </div>
+    </div>
+    <button class="close-btn" onclick="toggleSudu()">✕</button>
+  </div>
+  <div class="sudu-msgs" id="sudu-msgs"></div>
+  <div class="sudu-chips" id="sudu-chips"></div>
+  <div class="sudu-input-wrap">
+    <input type="text" class="ch-field" id="sudu-input" placeholder="What are you looking for?" onkeydown="if(event.key==='Enter') sendSuduMsg()"/>
+    <button class="sudu-send" id="sudu-send-btn" onclick="sendSuduMsg()">➔</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="toggleCart()"></div>
+<div class="cart-drawer" id="cart-drawer">
+  <div class="cart-header">
+    <div class="cart-title">🛒 Your Cart</div>
+    <button class="close-btn" onclick="toggleCart()">✕</button>
+  </div>
+  <div class="cart-list" id="cart-list"><div class="empty-cart">Your cart is empty. Start browsing the stalls!</div></div>
+  <div class="cart-footer">
+    <div class="cf-row"><span>Total</span><span id="cart-total" style="color:var(--saffron)">LKR 0</span></div>
+    <button class="checkout-btn" onclick="checkout()">Checkout at the Till →</button>
+  </div>
+</div>
+
+<div class="lightbox-overlay" id="lightbox-overlay" onclick="if(event.target===this) closeLightbox()">
+  <div class="lightbox-card">
+    <button class="lb-close" onclick="closeLightbox()">✕</button>
+    <div class="lb-img-wrap"><img class="lb-img" id="lb-img" src="" alt=""></div>
+    <div class="lb-body">
+      <div class="lb-name" id="lb-name"></div>
+      <div class="lb-price" id="lb-price"></div>
+      <div class="lb-desc" id="lb-desc" style="display:none"></div>
+      <button class="lb-add-btn" id="lb-add-btn">Add to Cart</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────
+const BACKEND_URL = 'https://kaprukapola.onrender.com';
+
+// ── STATE MAPS ─────────────────────────────────────────────────────
+let activeStall = null;         
+let activeCategorySlug = null;  
+let histories = {};             
+let cart = [];
+let isLoading = false;
+let isZoomed = false;
+let suduOpen = false;
+let suduHistory = [];
+let suduLoading = false;
+
+// Age Verification State
+let isAgeVerified = false;
+let pendingZoom = null;
+
+// ── NEW 7-SHOP PAVILION ARCHITECTURE DEFINITIONS ──────────
+const STALLS = [
+  {
+    id: 'lounge_pavilion', name: 'The Lounge', shopkeeper: 'Dev', role: 'Restricted Store (21+)', emoji: '🔞',
+    color: '#E74C3C', x: -7, z: 2, isRestricted: true,
+    greeting: "Welcome to The Lounge. This is a strictly age-gated section handling controlled substances and mature lifestyle goods. How may I assist you?",
+    categories: [
+      { slug: 'liquor', name: 'Liquor & Spirits', desc: 'Beer, Wine, Champaign, Whisky, Brandy', avatar: '🍷' },
+      { slug: 'adult_products', name: 'Adult Products', desc: 'Adult Toys, BDSM/Kink, Intimate Apparel', avatar: '🔞' },
+      { slug: 'tobacco', name: 'Controlled Grocery', desc: 'Tobacco, Liquor', avatar: '🚬' },
+      { slug: 'intimacy_rx', name: 'Intimate Pharmacy', desc: 'Adult Toys, Sexual Wellness', avatar: '💊' },
+      { slug: 'naughty_cards', name: 'Mature Stationery', desc: 'Naughty Cards', avatar: '💌' }
+    ]
+  },
+  {
+    id: 'food_pavilion', name: 'Fresh Food & Grocery', shopkeeper: 'Sampath Aiya', role: 'Pantry & Daily Run', emoji: '🍎',
+    color: '#2ECC71', x: -7, z: -6, isRestricted: false,
+    greeting: "Welcome to Fresh Food & Daily Grocery. Your standard high-frequency supermarket run for perishable fresh food, cooking essentials, and household consumables.",
+    categories: [
+      { slug: 'grocery', name: 'Daily Grocery', desc: 'Seafood, Frozen, Bagged, Canned, Dairy, Rice, Spices', avatar: '🛒' },
+      { slug: 'vegetables', name: 'Vegetables', desc: 'Fresh, Cut, Dehydrated, Organic Produce', avatar: '🥦' },
+      { slug: 'fruits', name: 'Fruits Baskets', desc: 'Fresh, Common, Seasonal, Fruit Baskets', avatar: '🍎' },
+      { slug: 'chocolates', name: 'Chocolates', desc: 'Cadbury, Lindt, Ferrero, Chocolate Hampers', avatar: '🍫' },
+      { slug: 'cakes', name: 'Cakes & Bakes', desc: 'Kapruka, Java, Hilton, Shangri-La Cakes', avatar: '🍰' },
+      { slug: 'food', name: 'Hot Food', desc: 'Direct hot food items and restaurant logs', avatar: '🍽️' },
+      { slug: 'consumables', name: 'Consumables', desc: 'Cleansers, Pest Control', avatar: '🧼' },
+      { slug: 'kitchen_dining', name: 'Kitchen & Dining', desc: 'Kitchenware, Dining Essentials, Mugs, Porcelain', avatar: '🏠' }
+    ]
+  },
+  {
+    id: 'gift_pavilion', name: 'Gifts & Celebrations', shopkeeper: 'Tharushi', role: 'Occasions Hub', emoji: '🎁',
+    color: '#E8521A', x: 5, z: -7, isRestricted: false,
+    greeting: "Hello! Welcome to the Gifts & Celebrations center. Everything emotional, seasonal, celebratory, and bundled into one centralized gifting destination.",
+    categories: [
+      { slug: 'flowers', name: 'Flowers', desc: 'Bouquets, Romance, Custom, Wholesale', avatar: '🌸' },
+      { slug: 'combopack', name: 'Combo Packs', desc: 'Cake & Flower, Clothing & Chocolates, etc.', avatar: '🎁' },
+      { slug: 'personalized', name: 'Personalized Gifts', desc: 'Drinkware, Apparel, Accessories, Jewelry', avatar: '🎨' },
+      { slug: 'seasonal', name: 'Seasonal / Events', desc: 'Valentines, Christmas, Birthdays, Promotions', avatar: '🎯' },
+      { slug: 'giftset', name: 'Gift Sets', desc: 'Curated sets for Her, Him, Mom, Dad, Couples', avatar: '💝' },
+      { slug: 'giftcert', name: 'Gift Vouchers', desc: 'Apparel, Hotels, Book Stores, Supermarkets', avatar: '🎫' },
+      { slug: 'party', name: 'Party Supplies', desc: 'Costumes, Decorations, Tableware', avatar: '🎉' },
+      { slug: 'greeting_cards', name: 'Greeting Cards', desc: 'Birthday, Anniversary, Wedding (Excl. Naughty)', avatar: '💌' }
+    ]
+  },
+  {
+    id: 'family_pavilion', name: 'Kids, Toys & Parents', shopkeeper: 'Chuti Nanda', role: 'Childhood Journey', emoji: '👶',
+    color: '#F4C430', x: -2, z: 7, isRestricted: false,
+    greeting: "Welcome to the Family Pavilion! A dedicated shop covering the entire life-cycle of childhood, from nursery prep to school gear and toys.",
+    categories: [
+      { slug: 'baby_items', name: 'Baby Care', desc: 'Baby Gear, Diapering, Maternity, Nursery', avatar: '🍼' },
+      { slug: 'kids_toys', name: 'Kids Toys', desc: 'Action Figures, LEGO, Board Games, Hot Wheels', avatar: '🧸' },
+      { slug: 'soft_toys', name: 'Soft Toys', desc: 'Plush Animals, Teddy Bunch, Cartoon Characters', avatar: '🧸' },
+      { slug: 'childrens', name: 'Childrens & School', desc: 'Arts & Crafts, School Essentials, Stationery', avatar: '🎒' },
+      { slug: 'schoolpride', name: 'School Pride', desc: 'Ananda, Royal, Trinity, Lyceum Merch', avatar: '🏫' },
+      { slug: 'kids_mobility', name: 'Kids Mobility', desc: 'Kids Bicycles, Electric Vehicles, Scooters', avatar: '🚲' },
+      { slug: 'kids_clothing', name: 'Kids Clothing', desc: 'Kids Apparel, Clothing Gift Sets', avatar: '👕' },
+      { slug: 'kids_fashion', name: 'Kids Fashion', desc: 'Kids Accessories, Kids Shoes', avatar: '👗' },
+      { slug: 'kids_luxury', name: 'Kids Luxury', desc: 'Kid\'s Perfume, Fashion Jewelry', avatar: '💎' }
+    ]
+  },
+  {
+    id: 'style_pavilion', name: 'Fashion & Beauty', shopkeeper: 'Safi', role: 'Lifestyle & Wellness', emoji: '👗',
+    color: '#9B59B6', x: -2, z: -8, isRestricted: false,
+    greeting: "Step into Fashion & Beauty. A personal lifestyle store focused on self-care, apparel, cosmetics, and luxury personal items.",
+    categories: [
+      { slug: 'clothing_adult', name: 'Adult Clothing', desc: 'Mens, Womens, Sarees, Sportswear, Activewear', avatar: '👕' },
+      { slug: 'fashion_adult', name: 'Adult Fashion', desc: 'Handbags, Shoes, Belts, Eyewear', avatar: '👗' },
+      { slug: 'cosmetics', name: 'Cosmetics', desc: 'Makeup, Skincare, Hair Care, Men\'s Grooming', avatar: '💄' },
+      { slug: 'perfumes_adult', name: 'Adult Perfumes', desc: 'Men\'s, Women\'s, Unisex Perfumes', avatar: '🌸' },
+      { slug: 'jewellery_adult', name: 'Adult Jewellery', desc: 'Gold, Watches, Vogue, Raja Jewelers', avatar: '💎' },
+      { slug: 'wellness_pharmacy', name: 'Wellness & Beauty', desc: 'Health & Beauty, Personal Care, Orthopedic', avatar: '💊' }
+    ]
+  },
+  {
+    id: 'tech_pavilion', name: 'Electronics & Home', shopkeeper: 'Kavindu', role: 'Hardware & Infrastructure', emoji: '📱',
+    color: '#3498DB', x: 8, z: -2, isRestricted: false,
+    greeting: "Welcome to Electronics, Home & Mobility. The heavy-duty hardware store for durable appliances, tech, automotive care, and home improvement.",
+    categories: [
+      { slug: 'electronics', name: 'Electronics', desc: 'Mobile Phones, Computers, Home Appliances', avatar: '📱' },
+      { slug: 'automobile', name: 'Automobile', desc: 'Auto Care, Engine Oils, Batteries, Tires', avatar: '🚗' },
+      { slug: 'bicycle_adult', name: 'Adult Bicycles', desc: 'Mountain, Electric, Hybrid, Cruiser Bikes', avatar: '🚲' },
+      { slug: 'sports', name: 'Sports & Adventure', desc: 'Fitness Equipment, Team Sports, Martial Arts', avatar: '⚽' },
+      { slug: 'household_tools', name: 'Household & Tools', desc: 'Furniture, Home Decor, Bathware, Gardening', avatar: '🏠' }
+    ]
+  },
+  {
+    id: 'care_pavilion', name: 'Culture & Services', shopkeeper: 'Malsha', role: 'Knowledge & Utilities', emoji: '📚',
+    color: '#1ABC9C', x: 6, z: 4, isRestricted: false,
+    greeting: "Welcome to Culture & Professional Services. A specialized hub for knowledge, pure medical care, religion, media, and everyday lifestyle utilities.",
+    categories: [
+      { slug: 'books', name: 'Books & Media', desc: 'Academic, Fiction, Children\'s, Reference', avatar: '📚' },
+      { slug: 'services', name: 'Professional Services', desc: 'Photography, Tech, Courier, Travel, Astrology', avatar: '🧑‍💼' },
+      { slug: 'medical_pharmacy', name: 'Medical Pharmacy', desc: 'Medicine, Vitamins, Surgical Accessories', avatar: '💊' },
+      { slug: 'ayurvedic', name: 'Ayurvedic', desc: 'Balm, Pills, Ayurveda Products', avatar: '🌿' },
+      { slug: 'pirikara', name: 'Pirikara & Religion', desc: 'Worship Items, Religious Decor, Figures', avatar: '🛕' },
+      { slug: 'pet', name: 'Pet Center', desc: 'Pet Food, Live Pets, Accessories, Grooming', avatar: '🐶' }
+    ]
+  }
+];
+
+// ── THREE.JS ENGINE CONFIGURATIONS ────────────
+let scene, camera, renderer, raycaster, mouse;
+let interactiveMeshes = [];
+let glowRings = [];
+let floatingDecorations = []; // Used to animate the specific pavilion decorations
+let targetCamPos = { x: 0, y: 15, z: 18 };
+let currentCamPos = { x: 0, y: 15, z: 18 };
+let targetLookAt = { x: 0, y: 0, z: -1 };
+let currentLookAt = { x: 0, y: 0, z: -1 };
+let animSpeed = 0.08;
+let clock = new THREE.Clock();
+
+const TREES = (() => {
+  const courtyard = [{x:-4,z:-2},{x:2,z:-3},{x:4,z:1},{x:-1,z:4},{x:2,z:-1},{x:-3,z:-4}];
+  const treeline = [];
+  const ringCount = 34;
+  for (let i = 0; i < ringCount; i++) {
+    const ang = (i / ringCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    const rad = 12.5 + Math.random() * 6;
+    treeline.push({ x: Math.cos(ang) * rad, z: Math.sin(ang) * rad });
+  }
+  // Mid-gap fill: the original ring stops at ~18.5 but the ground plane
+  // extends to 30, leaving a bare stretch that reads as an empty diorama.
+  const midGap = [];
+  const midCount = 22;
+  for (let i = 0; i < midCount; i++) {
+    const ang = (i / midCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const rad = 19 + Math.random() * 6;
+    midGap.push({ x: Math.cos(ang) * rad, z: Math.sin(ang) * rad });
+  }
+  // Edge tree-line: a denser forest wall just inside the 60x60 ground
+  // plane's boundary (radius 30) so the hard edge doesn't show against the sky.
+  const edgeLine = [];
+  const edgeCount = 40;
+  for (let i = 0; i < edgeCount; i++) {
+    const ang = (i / edgeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+    const rad = 26 + Math.random() * 3;
+    edgeLine.push({ x: Math.cos(ang) * rad, z: Math.sin(ang) * rad });
+  }
+  return courtyard.concat(treeline, midGap, edgeLine);
+})();
+
+// ── GHIBLI-STYLE VISUAL HELPERS (appearance only, no interaction logic) ──
+let TOON_GRADIENT, fireflyPoints, fireflyBaseY, fireflyPhase;
+let swayMeshes = [], birds = [], petals = [];
+let suduParts = null;
+
+function makeToonGradientTexture(steps = 4) {
+  const canvas = document.createElement('canvas');
+  canvas.width = steps; canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  for (let i = 0; i < steps; i++) {
+    const v = Math.round((i / (steps - 1)) * 255);
+    ctx.fillStyle = `rgb(${v},${v},${v})`;
+    ctx.fillRect(i, 0, 1, 1);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  return tex;
+}
+
+// Inverted-hull outline trick: cheap cel-shading silhouette, never added to
+// interactiveMeshes so it never interferes with click/raycast logic.
+function addOutline(mesh, color = 0x2B2014, scale = 1.06) {
+  const outlineMat = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
+  const outlineMesh = new THREE.Mesh(mesh.geometry, outlineMat);
+  outlineMesh.scale.multiplyScalar(scale);
+  mesh.add(outlineMesh);
+  return outlineMesh;
+}
+
+function buildSkyDome() {
+  const skyGeo = new THREE.SphereGeometry(120, 32, 16);
+  const topColor = new THREE.Color(0x6EC6E8);
+  const bottomColor = new THREE.Color(0xE8F6E0);
+  const pos = skyGeo.attributes.position;
+  const colors = [];
+  for (let i = 0; i < pos.count; i++) {
+    const tt = THREE.MathUtils.clamp((pos.getY(i) / 120) * 0.5 + 0.5, 0, 1);
+    const c = bottomColor.clone().lerp(topColor, tt);
+    colors.push(c.r, c.g, c.b);
+  }
+  skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
+  scene.add(new THREE.Mesh(skyGeo, skyMat));
+}
+
+function buildClouds() {
+  const cloudMat = new THREE.MeshBasicMaterial({ color: 0xFFFBF2 });
+  const clusters = [
+    {x:-22,y:26,z:-30,s:1.4},{x:18,y:30,z:-26,s:1.1},{x:-10,y:34,z:-40,s:1.6},
+    {x:26,y:24,z:-10,s:1.0},{x:-28,y:22,z:5,s:1.2},{x:8,y:32,z:-45,s:1.3}
+  ];
+  clusters.forEach(c => {
+    const group = new THREE.Group();
+    group.position.set(c.x, c.y, c.z);
+    const puffCount = 4 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < puffCount; i++) {
+      const r = (0.8 + Math.random() * 0.6) * c.s;
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), cloudMat);
+      puff.position.set((Math.random() - 0.5) * 2.2 * c.s, (Math.random() - 0.5) * 0.6 * c.s, (Math.random() - 0.5) * 1.4 * c.s);
+      group.add(puff);
+    }
+    scene.add(group);
+  });
+}
+
+// Procedural top-down grass + winding path texture, painted to match the
+// existing world-space layout (PlaneGeometry(60,60) rotated flat, so a
+// canvas pixel at (worldX+30, worldZ+30) scaled to canvas size lines up
+// with each pavilion's actual x/z position).
+function buildGroundTexture() {
+  const S = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = S; canvas.height = S;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#74B65E';
+  ctx.fillRect(0, 0, S, S);
+
+  // Organic speckle for grass texture variation
+  const speckleColors = ['#5FA84C', '#8FCB7B', '#69AE54'];
+  for (let i = 0; i < 2200; i++) {
+    ctx.fillStyle = speckleColors[i % speckleColors.length];
+    const rx = Math.random() * S, ry = Math.random() * S;
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 4 + Math.random() * 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const toCanvas = (wx, wz) => ({ x: S * (wx + 30) / 60, y: S * (wz + 30) / 60 });
+
+  ctx.strokeStyle = '#D8C28C';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = S * (1.7 / 60);
+  const center = toCanvas(0, 0);
+  STALLS.forEach(s => {
+    const dest = toCanvas(s.x, s.z);
+    const midX = (center.x + dest.x) / 2 + (Math.random() - 0.5) * 60;
+    const midY = (center.y + dest.y) / 2 + (Math.random() - 0.5) * 60;
+    ctx.beginPath();
+    ctx.moveTo(center.x, center.y);
+    ctx.quadraticCurveTo(midX, midY, dest.x, dest.y);
+    ctx.stroke();
+  });
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function buildFireflies(count = 40) {
+  const positions = new Float32Array(count * 3);
+  fireflyBaseY = new Float32Array(count);
+  fireflyPhase = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const x = (Math.random() - 0.5) * 26;
+    const z = (Math.random() - 0.5) * 26;
+    const y = 1.0 + Math.random() * 2.5;
+    positions[i * 3] = x; positions[i * 3 + 1] = y; positions[i * 3 + 2] = z;
+    fireflyBaseY[i] = y;
+    fireflyPhase[i] = Math.random() * Math.PI * 2;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 32; canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,250,210,1)');
+  grad.addColorStop(0.4, 'rgba(255,240,150,0.7)');
+  grad.addColorStop(1, 'rgba(255,240,150,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 32, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.35, map: tex, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false
+  });
+  fireflyPoints = new THREE.Points(geo, mat);
+  scene.add(fireflyPoints);
+}
+
+function buildBirds(count = 5) {
+  const bodyMat = new THREE.MeshBasicMaterial({ color: 0x2B2014 });
+  const wingGeo = new THREE.BoxGeometry(0.22, 0.02, 0.07);
+  for (let i = 0; i < count; i++) {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 6), bodyMat);
+    body.rotation.x = Math.PI / 2;
+    const lWing = new THREE.Mesh(wingGeo, bodyMat); lWing.position.set(-0.12, 0, 0);
+    const rWing = new THREE.Mesh(wingGeo, bodyMat); rWing.position.set(0.12, 0, 0);
+    group.add(body, lWing, rWing);
+    scene.add(group);
+
+    birds.push({
+      group, lWing, rWing,
+      radiusX: 18 + Math.random() * 10,
+      radiusZ: 18 + Math.random() * 10,
+      baseY: 16 + Math.random() * 6,
+      speed: 0.15 + Math.random() * 0.1,
+      phase: Math.random() * Math.PI * 2,
+      flapPhase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function buildPetals(count = 22) {
+  const petalMat = new THREE.MeshBasicMaterial({ color: 0xF7D3DE, side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: false });
+  const petalGeo = new THREE.PlaneGeometry(0.09, 0.06);
+  for (let i = 0; i < count; i++) {
+    const x = (Math.random() - 0.5) * 28;
+    const z = (Math.random() - 0.5) * 28;
+    const y = 1.2 + Math.random() * 3.5;
+    const mesh = new THREE.Mesh(petalGeo, petalMat);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+
+    petals.push({
+      mesh, baseX: x, baseY: y, baseZ: z,
+      phase: Math.random() * Math.PI * 2,
+      driftSpeed: 0.25 + Math.random() * 0.25,
+      swayAmp: 0.6 + Math.random() * 0.6,
+      tumbleSpeed: 0.8 + Math.random() * 1.2
+    });
+  }
+}
+
+function initThree() {
+  const container = document.getElementById('three-container');
+  const width = container.clientWidth || window.innerWidth;
+  const height = container.clientHeight || window.innerHeight;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xDCEFE0);
+  scene.fog = new THREE.FogExp2(0xDCEFE0, 0.02);
+
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  camera.position.set(targetCamPos.x, targetCamPos.y, targetCamPos.z);
+  camera.lookAt(targetLookAt.x, targetLookAt.y, targetLookAt.z);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  // ── GHIBLI-STYLE DAYTIME LIGHTING ──
+  scene.add(new THREE.HemisphereLight(0xBFE3F5, 0x6EA860, 0.5));
+  scene.add(new THREE.AmbientLight(0xFFF4DE, 0.12));
+  const dir = new THREE.DirectionalLight(0xFFEFC2, 0.75);
+  dir.position.set(12, 30, 15);
+  dir.castShadow = true;
+  dir.shadow.mapSize.width = 1024;
+  dir.shadow.mapSize.height = 1024;
+  dir.shadow.bias = -0.0006;
+  scene.add(dir);
+
+  TOON_GRADIENT = makeToonGradientTexture();
+
+  buildSkyDome();
+  buildClouds();
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.MeshToonMaterial({ map: buildGroundTexture(), gradientMap: TOON_GRADIENT })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  buildPavilionsGrid();
+  buildTreesEnvironment();
+  buildSuduGuideEntity();
+  buildFireflies();
+  buildBirds();
+  buildPetals();
+
+  window.addEventListener('resize', onResize);
+  container.addEventListener('click', onCanvasClick);
+  animate();
+}
+
+function buildPavilionsGrid() {
+  STALLS.forEach(s => {
+    const group = new THREE.Group();
+    group.position.set(s.x, 0, s.z);
+    group.userData = { stallId: s.id };
+
+    const glowMesh = new THREE.Mesh(
+      new THREE.RingGeometry(0, 1.6, 32),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(s.color), side: THREE.DoubleSide, transparent: true, opacity: 0.22 })
+    );
+    glowMesh.rotation.x = -Math.PI / 2;
+    glowMesh.position.y = 0.02;
+    group.add(glowMesh);
+    glowRings.push(glowMesh);
+
+    const baseGeo = new THREE.CylinderGeometry(1.2, 1.4, 1.5, 14);
+    const baseMat = new THREE.MeshToonMaterial({ color: 0x8B5E34, gradientMap: TOON_GRADIENT });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    baseMesh.position.y = 0.75;
+    baseMesh.castShadow = true;
+    baseMesh.receiveShadow = true;
+    group.add(baseMesh);
+    addOutline(baseMesh);
+
+    const roofGeo = new THREE.CylinderGeometry(0, 1.7, 1.2, 14);
+    const roofColor = new THREE.Color(s.color).lerp(new THREE.Color(0xffffff), 0.16);
+    const roofMat = new THREE.MeshToonMaterial({ color: roofColor, gradientMap: TOON_GRADIENT });
+    const roofMesh = new THREE.Mesh(roofGeo, roofMat);
+    roofMesh.position.y = 2.1;
+    roofMesh.castShadow = true;
+    group.add(roofMesh);
+    addOutline(roofMesh);
+
+    const trimMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(1.68, 0.07, 8, 24),
+      new THREE.MeshToonMaterial({ color: new THREE.Color(s.color).lerp(new THREE.Color(0x000000), 0.25), gradientMap: TOON_GRADIENT })
+    );
+    trimMesh.rotation.x = Math.PI / 2;
+    trimMesh.position.y = 1.52;
+    trimMesh.castShadow = true;
+    group.add(trimMesh);
+
+    const finialMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 10, 10),
+      new THREE.MeshToonMaterial({ color: 0x8B5E34, gradientMap: TOON_GRADIENT })
+    );
+    finialMesh.position.y = 2.72;
+    group.add(finialMesh);
+
+    const coreGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.4, 8);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(s.color),
+      emissive: new THREE.Color(s.color),
+      emissiveIntensity: 0.45,
+      transparent: true,
+      opacity: 0.85
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.y = 1.4;
+    group.add(coreMesh);
+
+    [baseMesh, roofMesh, coreMesh].forEach(m => {
+      m.userData = { parentGroup: group };
+      interactiveMeshes.push(m);
+    });
+
+    // ── SPECIFIC 3D DECORATIONS PER PAVILION ──
+    const decorGroup = new THREE.Group();
+    decorGroup.position.y = 3.2; // Hover above roof
+
+    if (s.id === 'food_pavilion') {
+      const apple = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshToonMaterial({color: 0xE74C3C, gradientMap: TOON_GRADIENT}));
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.15), new THREE.MeshToonMaterial({color: 0x2ECC71, gradientMap: TOON_GRADIENT}));
+      stem.position.y = 0.35;
+      apple.add(stem);
+      addOutline(apple, 0x6B1F12, 1.1);
+      decorGroup.add(apple);
+    } else if (s.id === 'style_pavilion') {
+      const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(0.4), new THREE.MeshToonMaterial({color: 0xFF69B4, gradientMap: TOON_GRADIENT}));
+      addOutline(diamond, 0x7A2E55, 1.1);
+      decorGroup.add(diamond);
+    } else if (s.id === 'gift_pavilion') {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshToonMaterial({color: 0xF4C430, gradientMap: TOON_GRADIENT}));
+      const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.1), new THREE.MeshToonMaterial({color: 0xE74C3C, gradientMap: TOON_GRADIENT}));
+      box.add(ribbon);
+      addOutline(box, 0x7A5A12, 1.1);
+      decorGroup.add(box);
+    } else if (s.id === 'family_pavilion') {
+      const block = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35), new THREE.MeshToonMaterial({color: 0x3498DB, gradientMap: TOON_GRADIENT}));
+      addOutline(block, 0x1B4F66, 1.1);
+      decorGroup.add(block);
+    } else if (s.id === 'tech_pavilion') {
+      const screen = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 0.05), new THREE.MeshToonMaterial({color: 0xBDC3C7, gradientMap: TOON_GRADIENT}));
+      addOutline(screen, 0x4A4F52, 1.1);
+      decorGroup.add(screen);
+    } else if (s.id === 'care_pavilion') {
+      const crossMat = new THREE.MeshToonMaterial({color: 0x1ABC9C, gradientMap: TOON_GRADIENT});
+      const cross1 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), crossMat);
+      const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.15), crossMat);
+      addOutline(cross1, 0x0D5C4A, 1.12);
+      addOutline(cross2, 0x0D5C4A, 1.12);
+      decorGroup.add(cross1, cross2);
+    } else if (s.id === 'lounge_pavilion') {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 16, 32), new THREE.MeshToonMaterial({color: 0xE74C3C, gradientMap: TOON_GRADIENT}));
+      addOutline(ring, 0x6B1F12, 1.15);
+      decorGroup.add(ring);
+    }
+
+    // Ensure decorations are interactive
+    decorGroup.children.forEach(m => {
+      m.userData = { parentGroup: group };
+      interactiveMeshes.push(m);
+    });
+
+    // ── SOFT BUSH RING (mossy-mound styling around each stall) ──
+    const bushMat = new THREE.MeshToonMaterial({ color: 0x4F8F50, gradientMap: TOON_GRADIENT });
+    const bushCount = 7;
+    for (let i = 0; i < bushCount; i++) {
+      const ang = (i / bushCount) * Math.PI * 2 + Math.random() * 0.3;
+      const rad = 1.9 + Math.random() * 0.4;
+      const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26 + Math.random() * 0.12, 0), bushMat);
+      bush.position.set(Math.cos(ang) * rad, 0.22, Math.sin(ang) * rad);
+      bush.castShadow = true;
+      group.add(bush);
+      swayMeshes.push({ mesh: bush, phase: Math.random() * Math.PI * 2, speed: 0.6 + Math.random() * 0.4, amp: 0.05 + Math.random() * 0.04 });
+    }
+
+    group.add(decorGroup);
+    floatingDecorations.push(decorGroup);
+
+    scene.add(group);
+    createFloatingOverlayLabel(s);
+  });
+}
+
+function buildTreesEnvironment() {
+  const foliageGreens = [0x549367, 0x78B885, 0x9FC679];
+  // Shared geometry/materials: every tree of a given foliage color is
+  // identical, so with the count now at 100+ there's no reason to allocate
+  // fresh GPU buffers per instance — this keeps memory/GC overhead flat
+  // regardless of how many trees are placed.
+  const trunkGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.6, 8);
+  const trunkMat = new THREE.MeshToonMaterial({ color: 0x6F4518, gradientMap: TOON_GRADIENT });
+  const foliageGeo = new THREE.DodecahedronGeometry(0.45);
+  const canopyGeo = new THREE.DodecahedronGeometry(0.3);
+  const foliageMats = foliageGreens.map(c => new THREE.MeshToonMaterial({ color: c, gradientMap: TOON_GRADIENT }));
+
+  TREES.forEach((t, i) => {
+    const g = new THREE.Group();
+    g.position.set(t.x, 0, t.z);
+    const mat = foliageMats[i % foliageMats.length];
+
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = 0.3;
+    trunk.castShadow = true;
+    addOutline(trunk, 0x2B1A0A, 1.08);
+
+    const foliage = new THREE.Mesh(foliageGeo, mat);
+    foliage.position.y = 0.85;
+    foliage.castShadow = true;
+    addOutline(foliage, 0x2A4B30, 1.08);
+    swayMeshes.push({ mesh: foliage, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.3, amp: 0.04 + Math.random() * 0.03 });
+
+    const canopy = new THREE.Mesh(canopyGeo, mat);
+    canopy.position.set(0.25, 1.05, 0.1);
+    canopy.castShadow = true;
+    addOutline(canopy, 0x2A4B30, 1.08);
+    swayMeshes.push({ mesh: canopy, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.3, amp: 0.04 + Math.random() * 0.03 });
+
+    g.add(trunk, foliage, canopy);
+    scene.add(g);
+  });
+}
+
+function buildSuduGuideEntity() {
+  const g = new THREE.Group();
+  g.position.set(0, 0, 0);
+  g.userData = { isSudu: true };
+
+  // SUDU STYLING: Cream toon-shaded fur, purple eyes
+  const fur = new THREE.MeshToonMaterial({ color: 0xFFF6E6, gradientMap: TOON_GRADIENT }); 
+  const eyes = new THREE.MeshBasicMaterial({ color: 0x9B59B6 }); 
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.45, 8), fur);
+  body.rotation.z = Math.PI / 2; body.position.y = 0.22; body.castShadow = true;
+  addOutline(body, 0x6B5A40, 1.1);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), fur);
+  head.position.set(0.22, 0.4, 0); head.castShadow = true;
+  addOutline(head, 0x6B5A40, 1.1);
+
+  const earGeo = new THREE.ConeGeometry(0.06, 0.14, 8);
+  const lEar = new THREE.Mesh(earGeo, fur); lEar.position.set(0.22, 0.55, 0.07); lEar.rotation.z = -0.1;
+  const rEar = new THREE.Mesh(earGeo, fur); rEar.position.set(0.22, 0.55, -0.07); rEar.rotation.z = -0.1;
+  addOutline(lEar, 0x6B5A40, 1.12);
+  addOutline(rEar, 0x6B5A40, 1.12);
+
+  // Layered eyes: white sclera + purple iris + dark pupil + tiny catchlight
+  function buildSuduEye(x, y, z) {
+    const eyeGroup = new THREE.Group();
+    eyeGroup.position.set(x, y, z);
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 10), new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), eyes);
+    iris.position.x = 0.018;
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 8), new THREE.MeshBasicMaterial({ color: 0x2A1B33 }));
+    pupil.position.x = 0.03;
+    const highlight = new THREE.Mesh(new THREE.SphereGeometry(0.005, 6, 6), new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+    highlight.position.set(0.033, 0.012, -0.008);
+    eyeGroup.add(sclera, iris, pupil, highlight);
+    return eyeGroup;
+  }
+  const lEye = buildSuduEye(0.38, 0.42, 0.06);
+  const rEye = buildSuduEye(0.38, 0.42, -0.06);
+
+  // Nose
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), new THREE.MeshBasicMaterial({ color: 0xE38AA0 }));
+  nose.position.set(0.4, 0.37, 0);
+  nose.scale.set(1, 0.7, 1.3);
+
+  // Whiskers
+  const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  const whiskers = [];
+  [-1, 1].forEach(side => {
+    for (let k = 0; k < 2; k++) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.16 - k * 0.02, 4), whiskerMat);
+      w.rotation.z = Math.PI / 2;
+      w.rotation.x = (k - 0.5) * 0.3;
+      w.position.set(0.43, 0.375 - k * 0.015, side * (0.05 + k * 0.01));
+      whiskers.push(w);
+    }
+  });
+
+  // Paws
+  const pawGeo = new THREE.SphereGeometry(0.05, 8, 8);
+  const lPaw = new THREE.Mesh(pawGeo, fur); lPaw.position.set(0.16, 0.06, 0.09); lPaw.scale.set(1, 0.7, 1); lPaw.castShadow = true;
+  const rPaw = new THREE.Mesh(pawGeo, fur); rPaw.position.set(0.16, 0.06, -0.09); rPaw.scale.set(1, 0.7, 1); rPaw.castShadow = true;
+  addOutline(lPaw, 0x6B5A40, 1.12);
+  addOutline(rPaw, 0x6B5A40, 1.12);
+
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.028, 0.28, 8), fur);
+  tail.position.set(-0.28, 0.35, 0); tail.rotation.z = -Math.PI / 4; tail.castShadow = true;
+  addOutline(tail, 0x6B5A40, 1.12);
+
+  suduParts = { tail, lEar, rEar };
+
+  const hitBox = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
+  hitBox.position.set(0, 0.35, 0);
+  hitBox.userData = { parentGroup: g };
+  interactiveMeshes.push(hitBox);
+
+  g.add(body, head, lEar, rEar, lEye, rEye, tail, nose, lPaw, rPaw, ...whiskers, hitBox);
+  scene.add(g);
+}
+
+function createFloatingOverlayLabel(stall) {
+  const div = document.createElement('div');
+  div.className = 'canvas-label';
+  div.id = 'label-' + stall.id;
+  div.innerHTML = `
+    <div style="font-size:22px; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5))">${stall.emoji}</div>
+    <div class="label-name">${stall.name}</div>
+    <div class="label-role">${stall.role}</div>
+  `;
+  div.onclick = () => {
+    const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === stall.id);
+    if (mesh) zoomToPavilion(stall.id, mesh.userData.parentGroup.position);
+  };
+  document.getElementById('labels-layer').appendChild(div);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  if (fireflyPoints) {
+    const pos = fireflyPoints.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, fireflyBaseY[i] + Math.sin(t * 0.8 + fireflyPhase[i]) * 0.25);
+    }
+    pos.needsUpdate = true;
+  }
+
+  swayMeshes.forEach(s => {
+    s.mesh.rotation.z = Math.sin(t * s.speed + s.phase) * s.amp;
+    s.mesh.rotation.x = Math.cos(t * s.speed * 0.7 + s.phase) * s.amp * 0.5;
+  });
+
+  birds.forEach(b => {
+    const ang = t * b.speed + b.phase;
+    b.group.position.set(Math.cos(ang) * b.radiusX, b.baseY + Math.sin(ang * 2) * 0.4, Math.sin(ang) * b.radiusZ);
+    b.group.rotation.y = -(ang + Math.PI / 2);
+    const flap = Math.sin(t * 10 + b.flapPhase) * 0.5;
+    b.lWing.rotation.z = flap;
+    b.rWing.rotation.z = -flap;
+  });
+
+  petals.forEach(p => {
+    p.mesh.position.x = p.baseX + Math.sin(t * p.driftSpeed + p.phase) * p.swayAmp;
+    p.mesh.position.z = p.baseZ + Math.cos(t * p.driftSpeed * 0.8 + p.phase) * p.swayAmp;
+    p.mesh.position.y = p.baseY + Math.sin(t * 0.6 + p.phase) * 0.4;
+    p.mesh.rotation.x = t * p.tumbleSpeed;
+    p.mesh.rotation.z = t * p.tumbleSpeed * 0.7;
+  });
+
+  if (suduParts) {
+    suduParts.tail.rotation.z = -Math.PI / 4 + Math.sin(t * 1.4) * 0.18;
+    suduParts.lEar.rotation.x = Math.sin(t * 1.8) * 0.08;
+    suduParts.rEar.rotation.x = Math.sin(t * 1.8 + 0.5) * 0.08;
+  }
+
+  glowRings.forEach((g, i) => {
+    g.material.opacity = 0.18 + Math.sin(t * 2.0 + i * 0.5) * 0.06;
+    const sc = 0.98 + Math.sin(t * 2.0 + i * 0.5) * 0.04;
+    g.scale.set(sc, sc, 1);
+  });
+
+  // Animate specific floating decorations
+  floatingDecorations.forEach((d, i) => {
+    d.rotation.y += 0.015;
+    d.position.y = 3.2 + Math.sin(t * 2.5 + i) * 0.15;
+  });
+
+  currentCamPos.x += (targetCamPos.x - currentCamPos.x) * animSpeed;
+  currentCamPos.y += (targetCamPos.y - currentCamPos.y) * animSpeed;
+  currentCamPos.z += (targetCamPos.z - currentCamPos.z) * animSpeed;
+  camera.position.set(currentCamPos.x, currentCamPos.y, currentCamPos.z);
+
+  currentLookAt.x += (targetLookAt.x - currentLookAt.x) * animSpeed;
+  currentLookAt.y += (targetLookAt.y - currentLookAt.y) * animSpeed;
+  currentLookAt.z += (targetLookAt.z - currentLookAt.z) * animSpeed;
+  camera.lookAt(currentLookAt.x, currentLookAt.y, currentLookAt.z);
+
+  updateLabelsLayerPositions();
+  renderer.render(scene, camera);
+}
+
+function updateLabelsLayerPositions() {
+  const container = document.getElementById('three-container');
+  const width = container.offsetWidth;
+  const height = container.offsetHeight;
+  if (!width || !height) return;
+
+  STALLS.forEach(s => {
+    const lbl = document.getElementById('label-' + s.id);
+    if (!lbl) return;
+    lbl.style.opacity = (isZoomed && activeStall !== s.id) ? '0' : '1';
+    
+    const wp = new THREE.Vector3(s.x, 2.8, s.z);
+    wp.project(camera);
+    lbl.style.left = ((wp.x * 0.5 + 0.5) * width) + 'px';
+    lbl.style.top = ((-(wp.y) * 0.5 + 0.5) * height) + 'px';
+  });
+}
+
+function onResize() {
+  const container = document.getElementById('three-container');
+  const w = container.clientWidth || window.innerWidth;
+  const h = container.clientHeight || window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+function onCanvasClick(e) {
+  if (e.target.closest('.canvas-label') || e.target.closest('.nav') || e.target.closest('.chat-panel') || e.target.closest('.sudu-panel') || e.target.closest('.cart-drawer') || e.target.closest('.age-modal')) return;
+
+  const container = document.getElementById('three-container');
+  const rect = container.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / container.offsetWidth) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / container.offsetHeight) * 2 + 1;
+  
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(interactiveMeshes);
+  if (!hits.length) return;
+  
+  const group = hits[0].object.userData.parentGroup;
+  if (!group) return;
+  
+  if (group.userData.stallId) zoomToPavilion(group.userData.stallId, group.position);
+  else if (group.userData.isSudu) toggleSudu();
+}
+
+// ── AGE VERIFICATION LOGIC ──────────────────────────────────────
+function closeAgeGate() {
+  document.getElementById('age-gate').classList.remove('show');
+  document.getElementById('age-error').style.display = 'none';
+  pendingZoom = null;
+}
+
+function verifyAge() {
+  const dobVal = document.getElementById('dob-input').value;
+  const errorEl = document.getElementById('age-error');
+  
+  if (!dobVal) {
+    errorEl.textContent = "Please select a valid date.";
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const dob = new Date(dobVal);
+  const today = new Date(); // Context Date: June 12, 2026
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+
+  if (age >= 21) {
+    isAgeVerified = true;
+    closeAgeGate();
+    if (pendingZoom) {
+      zoomToPavilion(pendingZoom.id, pendingZoom.pos, true);
+    }
+  } else {
+    errorEl.textContent = "Access Denied. You must be 21 or older to enter.";
+    errorEl.style.display = 'block';
+  }
+}
+
+function zoomToPavilion(pavilionId, position, bypassCheck = false) {
+  const targetStall = STALLS.find(s => s.id === pavilionId);
+  
+  if (targetStall && targetStall.isRestricted && !isAgeVerified && !bypassCheck) {
+    pendingZoom = { id: pavilionId, pos: position };
+    document.getElementById('age-gate').classList.add('show');
+    return;
+  }
+
+  if (isZoomed && activeStall === pavilionId) return;
+  isZoomed = true;
+  activeStall = pavilionId;
+  activeCategorySlug = null; 
+
+  STALLS.forEach(s => {
+    document.getElementById('label-' + s.id)?.classList.remove('active');
+  });
+  document.getElementById('label-' + pavilionId)?.classList.add('active');
+
+  targetCamPos = { x: position.x + 0, y: 5.5, z: position.z + 7.5 };
+  targetLookAt = { x: position.x, y: 1.4, z: position.z };
+
+  document.getElementById('zoom-overlay').classList.add('active');
+  document.getElementById('back-btn').classList.add('show');
+  
+  setTimeout(() => openPavilionConsole(pavilionId), 300);
+}
+
+function zoomOut() {
+  if (!isZoomed) return;
+  isZoomed = false;
+  activeStall = null;
+  activeCategorySlug = null;
+
+  STALLS.forEach(s => {
+    document.getElementById('label-' + s.id)?.classList.remove('active');
+  });
+
+  document.getElementById('chat-panel').classList.remove('open');
+  document.getElementById('zoom-overlay').classList.remove('active');
+  document.getElementById('back-btn').classList.remove('show');
+  
+  targetCamPos = { x: 0, y: 15, z: 18 };
+  targetLookAt = { x: 0, y: 0, z: -1 };
+}
+
+function openPavilionConsole(pavilionId) {
+  const s = STALLS.find(x => x.id === pavilionId);
+  if (!s) return;
+
+  document.getElementById('ch-av').textContent = s.emoji;
+  document.getElementById('ch-av').style.background = s.color + '1A';
+  document.getElementById('ch-av').style.border = `1px solid ${s.color}33`;
+  document.getElementById('ch-name').textContent = s.shopkeeper || s.name;
+  document.getElementById('ch-role').textContent = s.name;
+
+  const msgsContainer = document.getElementById('chat-msgs');
+  msgsContainer.innerHTML = '';
+
+  const greetWrap = document.createElement('div');
+  greetWrap.className = 'msg agent';
+  greetWrap.innerHTML = `
+    <div class="msg-av" style="background:${s.color}22">${s.emoji}</div>
+    <div class="msg-bubble">${s.greeting}</div>
+  `;
+  msgsContainer.appendChild(greetWrap);
+
+  const chipsBox = document.createElement('div');
+  chipsBox.className = 'pavilion-chips-box';
+  
+  s.categories.forEach(cat => {
+    const chip = document.createElement('div');
+    chip.className = `subcat-chip ${activeCategorySlug === cat.slug ? 'active' : ''}`;
+    chip.id = `chip-route-${cat.slug}`;
+    chip.innerHTML = `
+      <div style="font-weight:700; font-size:13.5px; color:var(--saffron); display:flex; align-items:center; gap:6px;">
+        <span>${cat.avatar}</span> ${cat.name}
+      </div>
+      <div style="font-size:11.5px; color:var(--text2); margin-top:3px; line-height:1.4;">${cat.desc}</div>
+    `;
+    chip.onclick = () => activateCategoryChannel(cat, s);
+    chipsBox.appendChild(chip);
+  });
+  
+  msgsContainer.appendChild(chipsBox);
+
+  const chatInput = document.getElementById('chat-input');
+  chatInput.disabled = true;
+  chatInput.placeholder = "Select a category channel above...";
+
+  document.getElementById('chat-panel').classList.add('open');
+}
+
+function activateCategoryChannel(category, pavilion) {
+  activeCategorySlug = category.slug;
+
+  pavilion.categories.forEach(c => {
+    document.getElementById(`chip-route-${c.slug}`)?.classList.remove('active');
+  });
+  document.getElementById(`chip-route-${category.slug}`)?.classList.add('active');
+
+  const msgsContainer = document.getElementById('chat-msgs');
+  
+  if (!histories[activeCategorySlug]) {
+    histories[activeCategorySlug] = [];
+    const entryGreeting = `Data channel opened for [${category.name}]. My catalog lookup keys are synched with Kapruka MCP. How can I assist you with this section?`;
+    histories[activeCategorySlug].push({ role: 'assistant', content: entryGreeting });
+  }
+
+  msgsContainer.innerHTML = '';
+  histories[activeCategorySlug].forEach(m => {
+    renderBubble(m.role === 'user' ? 'user' : 'agent', m.content, pavilion);
+  });
+
+  const chatInput = document.getElementById('chat-input');
+  chatInput.disabled = false;
+  chatInput.placeholder = `Search within ${category.name}...`;
+  chatInput.focus();
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+  if (isZoomed) zoomOut();
+}
+
+let crossStallHint = null;
+
+async function sendMsg() {
+  if (!activeCategorySlug || isLoading) return;
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+
+  const s = STALLS.find(x => x.id === activeStall);
+  renderBubble('user', text);
+  histories[activeCategorySlug].push({ role: 'user', content: text });
+  
+  const msgs = document.getElementById('chat-msgs');
+  showTyping(msgs, s.emoji, s.color + '22');
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    // Pass history WITHOUT the message we just pushed — callBackend appends it
+    const historyToSend = histories[activeCategorySlug].slice(0, -1);
+    const data = await callBackend(activeStall, text, historyToSend, cart, crossStallHint);
+    crossStallHint = null;
+    hideTyping(msgs);
+    processReply(data, activeCategorySlug, s);
+  } catch(err) {
+    hideTyping(msgs);
+    renderBubble('agent', "Apologies, connection encountered an error route. Please try querying your item again.", s);
+    console.error(err);
+  }
+  isLoading = false;
+  document.getElementById('send-btn').disabled = false;
+}
+
+async function callBackend(pavilionId, message, history, cartContext, crossStallHint) {
+  // Build messages including the new user message for the worker
+  const messages = history.filter(m => m.role !== 'system').slice(-10)
+    .concat([{ role: 'user', content: message }]);
+  const r = await fetch(`${BACKEND_URL}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pavilion: pavilionId, messages })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function processReply(data, currentCategorySlug, stall) {
+  if (activeCategorySlug !== currentCategorySlug) return;
+  const replyText = data.text || data.reply || '';
+  const products = data.products || [];
+  histories[currentCategorySlug].push({ role: 'assistant', content: replyText + (products.length ? ' [showed products]' : '') });
+  if (replyText) renderBubble('agent', replyText, stall);
+  if (products.length) renderProducts(products, document.getElementById('chat-msgs'));
+  if (data.checkoutUrl) renderCheckoutButton(data.checkoutUrl);
+  if (data.cross_stall_suggestions?.length) renderCrossStallBanner(data.cross_stall_suggestions, stall);
+}
+
+function renderCheckoutButton(url) {
+  const msgs = document.getElementById('chat-msgs');
+  const el = document.createElement('div');
+  el.style.cssText = 'margin-top:8px;';
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.textContent = '🛒 Complete Order on Kapruka →';
+  a.style.cssText = 'display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;text-decoration:none;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;box-shadow:0 4px 15px rgba(232,82,26,0.35);';
+  el.appendChild(a);
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderDeliveryInfo(info, stall) {
+  if (!info?.raw) return;
+  const msgs = document.getElementById('chat-msgs');
+  const el = document.createElement('div');
+  el.style.cssText = `background:rgba(244,196,48,0.08);border:1px solid rgba(244,196,48,0.2);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--text2);margin-top:2px;`;
+  el.textContent = '🚚 ' + info.raw.split('\n')[0];
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderCrossStallBanner(suggestions, fromStall) {
+  const msgs = document.getElementById('chat-msgs');
+  suggestions.forEach(s => {
+    let targetPavilion = null;
+    let targetCatObj = null;
+
+    for (let p of STALLS) {
+      let found = p.categories.find(c => c.slug === s.stall_id);
+      if (found) { targetPavilion = p; targetCatObj = found; break; }
+    }
+    if (!targetPavilion) return;
+
+    const banner = document.createElement('div');
+    banner.style.cssText = `display:flex;align-items:center;gap:10px;background:${targetPavilion.color}11;border:1px solid ${targetPavilion.color}33;border-radius:12px;padding:10px 14px;margin-top:4px;cursor:pointer;transition:background 0.2s;`;
+    banner.innerHTML = `
+      <span style="font-size:20px">${targetCatObj.avatar || targetPavilion.emoji}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Explore ${targetCatObj.name} Channel</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:1px">${s.hint || 'Switch category channel layout →'}</div>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:${targetPavilion.color};white-space:nowrap">Go →</div>
+    `;
+    banner.onclick = () => {
+      crossStallHint = `Recommended connection branch route suggestion: ${s.hint || ''}`;
+      const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === targetPavilion.id);
+      if (mesh) {
+        closeChat();
+        setTimeout(() => {
+          zoomToPavilion(targetPavilion.id, mesh.userData.parentGroup.position);
+          setTimeout(() => {
+            activateCategoryChannel(targetCatObj, targetPavilion);
+          }, 450);
+        }, 250);
+      }
+    };
+    msgs.appendChild(banner);
+  });
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── SUDU GUIDE AI PANEL ──
+function toggleSudu() {
+  suduOpen = !suduOpen;
+  document.getElementById('sudu-panel').classList.toggle('open', suduOpen);
+  if (suduOpen && !suduHistory.length) initSudu();
+  if (suduOpen) setTimeout(() => document.getElementById('sudu-input').focus(), 400);
+}
+
+function initSudu() {
+  const greeting = "Purrr. I am Sudu! Welcome to Pola. I map all 7 pavilions and our new robust category networks. What are you looking to query?";
+  addSuduMsg(greeting, 'agent');
+  suduHistory.push({ role: 'assistant', content: greeting });
+
+  const chips = document.getElementById('sudu-chips');
+  chips.innerHTML = '';
+  [
+    { label: "Need Groceries 🍎", msg: "Where are the grocery items?" },
+    { label: "Buying Clothes 👗", msg: "I want to browse clothing and fashion options" },
+    { label: "Looking for Medicine 💊", msg: "Where is the pharmacy counter?" },
+    { label: "Buy a Gift Box 🎁", msg: "I need to find gift sets or hampers" }
+  ].forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'sudu-chip';
+    btn.textContent = c.label;
+    btn.onclick = () => sendSuduMsg(c.msg);
+    chips.appendChild(btn);
+  });
+}
+
+async function sendSuduMsg(preset) {
+  if (suduLoading) return;
+  const inp = document.getElementById('sudu-input');
+  const text = (preset || inp.value).trim();
+  if (!text) return;
+  inp.value = '';
+
+  document.getElementById('sudu-chips').innerHTML = '';
+  addSuduMsg(text, 'user');
+  suduHistory.push({ role: 'user', content: text });
+
+  suduLoading = true;
+  document.getElementById('sudu-send-btn').disabled = true;
+  const msgs = document.getElementById('sudu-msgs');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'sudu-msg'; typingEl.id = 'sudu-typing';
+  typingEl.innerHTML = '<span style="opacity:.4">...</span>';
+  msgs.appendChild(typingEl);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'sudu',
+        messages: suduHistory.slice(-10),
+      })
+    });
+    document.getElementById('sudu-typing')?.remove();
+    if (r.ok) {
+      const data = await r.json();
+      const replyText = data.text || data.reply || '';
+      suduHistory.push({ role: 'assistant', content: replyText });
+      processSuduReply(replyText);
+    } else {
+      addSuduMsg("Meow… something's off. Try again in a moment.", 'agent');
+    }
+  } catch(e) {
+    document.getElementById('sudu-typing')?.remove();
+    addSuduMsg("Meow… something's off. Try again in a moment.", 'agent');
+  }
+  suduLoading = false;
+  document.getElementById('sudu-send-btn').disabled = false;
+}
+
+function processSuduReply(text) {
+  if (text) addSuduMsg(text, 'agent');
+  const chips = extractPavilionChips(text);
+  if (chips.length) renderSuduChips(chips);
+}
+
+function extractPavilionChips(text) {
+  const PAVILION_SIGNALS = [
+    { id: 'food_pavilion',   signals: ["sampath", "food", "grocery", "cake", "chocolate", "fruit", "vegetable", "fresh food"] },
+    { id: 'gift_pavilion',   signals: ["tharushi", "gift", "flower", "celebration", "combo", "personali", "voucher", "party"] },
+    { id: 'family_pavilion', signals: ["chuti nanda", "kids", "toy", "baby", "school", "children", "family"] },
+    { id: 'style_pavilion',  signals: ["safi", "fashion", "beauty", "clothing", "cosmetic", "perfume", "jewellery"] },
+    { id: 'tech_pavilion',   signals: ["kavindu", "electronic", "tech", "phone", "laptop", "bicycle", "sport", "home appliance", "automobile"] },
+    { id: 'care_pavilion',   signals: ["malsha", "book", "service", "pharmacy", "medicine", "ayurvedic", "pet", "religion", "pirikara"] },
+    { id: 'lounge_pavilion', signals: ["dev", "lounge", "liquor", "alcohol", "adult", "tobacco"] },
+  ];
+  const lower = text.toLowerCase();
+  const found = [];
+  const seen = new Set();
+  for (const { id, signals } of PAVILION_SIGNALS) {
+    if (signals.some(s => lower.includes(s)) && !seen.has(id)) {
+      seen.add(id);
+      const stall = STALLS.find(x => x.id === id);
+      if (stall) found.push({ id, name: stall.shopkeeper || stall.name, emoji: stall.emoji });
+    }
+  }
+  return found;
+}
+
+function renderSuduChips(suggestions) {
+  const chips = document.getElementById('sudu-chips');
+  chips.innerHTML = '';
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sudu-chip';
+    
+    let targetPav = STALLS.find(x => x.id === s.id);
+    let targetCat = null;
+    
+    if (!targetPav) {
+      for (let p of STALLS) {
+        let found = p.categories.find(c => c.slug === s.id);
+        if (found) { targetPav = p; targetCat = found; break; }
+      }
+    }
+
+    if (targetPav) {
+      btn.textContent = `${targetCat ? targetCat.avatar : targetPav.emoji} Go to ${targetCat ? targetCat.name : targetPav.name} →`;
+      btn.style.borderColor = targetPav.color + '44';
+      btn.style.color = targetPav.color;
+      btn.onclick = () => {
+        crossStallHint = s.hint ? `Sudu suggested path tracking route: ${s.hint}` : null;
+        toggleSudu();
+        const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === targetPav.id);
+        if (mesh) {
+          setTimeout(() => {
+            zoomToPavilion(targetPav.id, mesh.userData.parentGroup.position);
+            if (targetCat) {
+              setTimeout(() => activateCategoryChannel(targetCat, targetPav), 450);
+            }
+          }, 200);
+        }
+      };
+    } else {
+      btn.textContent = `Explore ${s.name || 'Section'} →`;
+      btn.onclick = () => toggleSudu();
+    }
+    chips.appendChild(btn);
+  });
+}
+
+function addSuduMsg(text, type) {
+  const msgs = document.getElementById('sudu-msgs');
+  const el = document.createElement('div');
+  el.className = 'sudu-msg' + (type === 'user' ? ' user' : '');
+  el.textContent = text;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderBubble(type, text, stall) {
+  const s = stall || (activeStall ? STALLS.find(x => x.id === activeStall) : null);
+  const el = document.createElement('div');
+  el.className = 'msg ' + type;
+  
+  const av = document.createElement('div');
+  av.className = 'msg-av';
+  if (type === 'agent' && s) { 
+    av.textContent = s.emoji; 
+    av.style.background = s.color + '22'; 
+  } else { 
+    av.textContent = '🧑'; 
+    av.style.background = 'var(--dark3)'; 
+  }
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  
+  el.appendChild(av); 
+  el.appendChild(bubble);
+  
+  const msgs = document.getElementById('chat-msgs');
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderProducts(products, container) {
+  const wrap = document.createElement('div');
+  wrap.className = 'p-cards';
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'p-card';
+    card.innerHTML = `
+      <img class="p-img" src="${p.image||''}" alt="${p.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 56 56%22><rect width=%2256%22 height=%2256%22 fill=%22%23221F1C%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 font-size=%2222%22>📦</text></svg>'" style="cursor:pointer"/>
+      <div class="p-info"><div class="p-name">${p.name}</div><div class="p-price">${p.price}</div></div>
+      <button class="add-btn" onclick='addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Add</button>
+    `;
+    card.querySelector('.p-img').addEventListener('click', () => openProductLightbox(p));
+    wrap.appendChild(card);
+  });
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function openProductLightbox(p) {
+  document.getElementById('lb-img').src = p.image || '';
+  document.getElementById('lb-img').alt = p.name || '';
+  document.getElementById('lb-name').textContent = p.name || '';
+  document.getElementById('lb-price').textContent = p.price || '';
+  const descEl = document.getElementById('lb-desc');
+  if (p.description) { descEl.textContent = p.description; descEl.style.display = ''; }
+  else { descEl.style.display = 'none'; }
+  const addBtn = document.getElementById('lb-add-btn');
+  addBtn.onclick = () => { addToCart(p); closeLightbox(); };
+  document.getElementById('lightbox-overlay').classList.add('show');
+}
+function closeLightbox() { document.getElementById('lightbox-overlay').classList.remove('show'); }
+
+function showTyping(container, emoji, bg) {
+  const el = document.createElement('div');
+  el.className = 'typing-wrap'; el.id = 'typing-ind';
+  el.innerHTML = `<div class="msg-av" style="background:${bg||'var(--dark3)'}">${emoji||'🤖'}</div><div class="typing-bubble"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+function hideTyping(container) { container?.querySelector('#typing-ind')?.remove(); }
+
+function addToCart(p) {
+  cart.push(p);
+  document.getElementById('cart-count').textContent = cart.length;
+  const btn = document.querySelector('.cart-btn');
+  btn.style.background = '#2D6A4F44';
+  setTimeout(() => btn.style.background = '', 500);
+}
+function removeFromCart(i) { cart.splice(i,1); document.getElementById('cart-count').textContent = cart.length; renderCart(); }
+function toggleCart() {
+  const d = document.getElementById('cart-drawer'), o = document.getElementById('overlay');
+  if (!d.classList.contains('open')) { renderCart(); d.classList.add('open'); o.classList.add('show'); }
+  else { d.classList.remove('open'); o.classList.remove('show'); }
+}
+function renderCart() {
+  const list = document.getElementById('cart-list'), total = document.getElementById('cart-total');
+  if (!cart.length) { list.innerHTML = '<div class="empty-cart">Your cart is empty. Start browsing the stalls!</div>'; total.textContent = 'LKR 0'; return; }
+  list.innerHTML = ''; let t = 0;
+  cart.forEach((item,i) => {
+    const price = parseInt((item.price||'0').replace(/[^0-9]/g,''))||0; t += price;
+    const el = document.createElement('div'); el.className = 'cart-item';
+    el.innerHTML = `<span>📦</span><span class="ci-name">${item.name}</span><span class="ci-price">${item.price}</span><button class="rm-btn" onclick="removeFromCart(${i})">✕</button>`;
+    list.appendChild(el);
+  });
+  total.textContent = `LKR ${t.toLocaleString()}`;
+}
+function checkout() { if (!cart.length) return; alert('Checkout redirection processing via Kapruka standard payment pipeline triggers coming online soon!'); }
+
+document.addEventListener('keydown', e => {
+  if (['chat-input','sudu-input'].includes(document.activeElement?.id)) return;
+  if (e.key === 'Escape') {
+    if (document.getElementById('lightbox-overlay').classList.contains('show')) closeLightbox();
+    else if (isZoomed) zoomOut(); else if (suduOpen) toggleSudu();
+  }
+});
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    initThree();
+    onResize();
+  }, 100);
+});
+</script>
+</body>
+</html>
