@@ -34,6 +34,9 @@ button{cursor:pointer;transition:all 0.2s ease}
 .cart-badge{background:var(--orange);color:white;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center}
 .sudu-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#FFFFFF;padding:8px 16px;border-radius:30px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
 .sudu-btn:hover{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.4)}
+.sound-btn{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#FFFFFF;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sound-btn:hover{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.4)}
+.sound-btn.muted{opacity:0.5}
 
 /* ── THREE.JS WORLD CONTAINER ── */
 #three-container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1}
@@ -148,6 +151,39 @@ button{cursor:pointer;transition:all 0.2s ease}
 .ci-price{font-size:13px;color:var(--saffron);font-weight:700}
 .rm-btn{color:var(--text3);font-size:12px;padding:4px}
 .rm-btn:hover{color:var(--orange)}
+.ci-qty{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ci-qty-btn{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid var(--border2);font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--text)}
+.ci-qty-btn:hover{background:rgba(255,255,255,0.16)}
+.ci-qty-val{font-size:12.5px;font-weight:600;min-width:14px;text-align:center}
+
+.ccf-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(10,6,3,0.78);backdrop-filter:blur(8px);z-index:160;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.3s ease;}
+.ccf-overlay.show{opacity:1;pointer-events:auto;}
+.ccf-card{position:relative;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;background-color:rgba(34,25,17,0.97);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.06),transparent 50%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;border:1px solid rgba(244,196,48,0.22);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.08);transform:translateY(20px);transition:transform 0.3s ease;}
+.ccf-overlay.show .ccf-card{transform:translateY(0);}
+.ccf-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(20,15,10,0.6);border:1px solid rgba(244,196,48,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);z-index:2}
+.ccf-close:hover{background:rgba(20,15,10,0.85);color:var(--text)}
+.ccf-header{padding:24px 24px 4px}
+.ccf-title{font-family:var(--font-h);font-size:20px;font-weight:800;color:var(--text)}
+.ccf-body{padding:16px 24px 24px}
+.ccf-field{margin-bottom:14px;position:relative}
+.ccf-label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--saffron);font-weight:700;margin-bottom:6px;display:block}
+.ccf-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:13.5px;color:var(--text)}
+.ccf-input:focus{border-color:rgba(244,196,48,0.4);background:rgba(255,255,255,0.09)}
+.ccf-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ccf-city-dropdown{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:rgba(20,15,10,0.97);border:1px solid rgba(244,196,48,0.25);border-radius:10px;max-height:180px;overflow-y:auto;z-index:5;display:none;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+.ccf-city-dropdown.show{display:block}
+.ccf-city-opt{padding:9px 13px;font-size:13px;color:var(--text);cursor:pointer}
+.ccf-city-opt:hover{background:rgba(244,196,48,0.1)}
+.ccf-city-opt .ccf-city-alias{color:var(--text3);font-size:11px}
+.ccf-delivery-preview{font-size:12.5px;border-radius:10px;padding:10px 13px;margin-top:-4px;margin-bottom:14px;display:none}
+.ccf-delivery-preview.show{display:block}
+.ccf-delivery-preview.ok{background:rgba(116,138,91,0.15);border:1px solid rgba(116,138,91,0.3);color:var(--text)}
+.ccf-delivery-preview.warn{background:rgba(232,82,26,0.1);border:1px solid rgba(232,82,26,0.3);color:var(--text)}
+.ccf-error{font-size:12.5px;color:#FF8B6B;background:rgba(232,82,26,0.1);border:1px solid rgba(232,82,26,0.3);border-radius:10px;padding:10px 13px;margin-bottom:14px;display:none}
+.ccf-error.show{display:block}
+.ccf-submit-btn{display:block;width:100%;text-align:center;background:var(--orange);color:white;border:none;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3);margin-top:6px;cursor:pointer}
+.ccf-submit-btn:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35)}
+.ccf-submit-btn:disabled{opacity:0.6;cursor:default}
 .cart-footer{padding:24px;border-top:1px solid transparent;box-shadow:0 -1px 0 rgba(244,196,48,0.12);background:rgba(20,15,10,0.4)}
 .cf-row{display:flex;justify-content:space-between;margin-bottom:16px;font-weight:600;font-size:15px}
 .checkout-btn{width:100%;background:var(--orange);color:white;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3)}
@@ -169,6 +205,32 @@ button{cursor:pointer;transition:all 0.2s ease}
 .lb-desc{font-size:13.5px;line-height:1.6;color:var(--text2);margin-bottom:18px;white-space:pre-line}
 .lb-add-btn{width:100%;background:var(--orange);color:white;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3)}
 .lb-add-btn:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35)}
+
+.cos-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(10,6,3,0.78);backdrop-filter:blur(8px);z-index:160;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.3s ease;}
+.cos-overlay.show{opacity:1;pointer-events:auto;}
+.cos-card{position:relative;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background-color:rgba(34,25,17,0.97);background-image:var(--grain),linear-gradient(165deg,rgba(244,196,48,0.06),transparent 50%);background-blend-mode:soft-light,normal;background-size:180px 180px,cover;background-repeat:repeat,no-repeat;border:1px solid rgba(244,196,48,0.22);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.08);transform:translateY(20px);transition:transform 0.3s ease;}
+.cos-overlay.show .cos-card{transform:translateY(0);}
+.cos-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(20,15,10,0.6);border:1px solid rgba(244,196,48,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);z-index:2}
+.cos-close:hover{background:rgba(20,15,10,0.85);color:var(--text)}
+.cos-header{padding:24px 24px 4px}
+.cos-title{font-family:var(--font-h);font-size:20px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.cos-ref{font-size:12px;color:var(--text2);margin-top:4px;letter-spacing:0.3px}
+.cos-body{padding:18px 24px 24px}
+.cos-section{margin-bottom:18px}
+.cos-label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--saffron);font-weight:700;margin-bottom:8px}
+.cos-row{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--text);padding:4px 0}
+.cos-row span:first-child{color:var(--text2);flex-shrink:0}
+.cos-row span:last-child{text-align:right}
+.cos-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cos-item:last-child{border-bottom:none}
+.cos-item-img{width:42px;height:42px;border-radius:8px;object-fit:cover;background:var(--dark3);flex-shrink:0}
+.cos-item-name{font-size:13px;color:var(--text);flex:1;line-height:1.4}
+.cos-item-qty{font-size:12px;color:var(--text2);flex-shrink:0}
+.cos-totals{border-top:1px solid var(--border2);margin-top:10px;padding-top:10px}
+.cos-grand-row{display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:var(--saffron);margin-top:6px;padding-top:8px;border-top:1px solid rgba(244,196,48,0.2)}
+.cos-expiry{font-size:11.5px;color:var(--text3);text-align:center;margin-top:10px}
+.cos-pay-btn{display:block;width:100%;text-align:center;background:var(--orange);color:white;text-decoration:none;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3);margin-top:14px}
+.cos-pay-btn:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35)}
 
 /* ── DESKTOP-ONLY GATE ── */
 /* Pola's chat/Sudu/cart panels use fixed widths sized for desktop and the
@@ -195,10 +257,15 @@ button{cursor:pointer;transition:all 0.2s ease}
 <nav class="nav">
   <div class="nav-logo">⛺ Pola <span>Kapruka Market</span></div>
   <div class="nav-actions">
+    <button class="sound-btn" id="sound-btn" onclick="toggleSound()" title="Toggle ambient sound" aria-label="Toggle ambient sound">🔊</button>
     <button class="sudu-btn" onclick="toggleSudu()">🐱 Ask Sudu</button>
     <button class="cart-btn" onclick="toggleCart()">🛒 Cart <span class="cart-badge" id="cart-count">0</span></button>
   </div>
 </nav>
+
+<audio id="ambient-audio" loop preload="auto">
+  <source src="assets/audio/market-ambience.mp3" type="audio/mpeg">
+</audio>
 
 <button class="back-btn" id="back-btn" onclick="zoomOut()">← Back to Courtyard</button>
 <div id="zoom-overlay" onclick="zoomOut()"></div>
@@ -275,6 +342,77 @@ button{cursor:pointer;transition:all 0.2s ease}
       <div class="lb-price" id="lb-price"></div>
       <div class="lb-desc" id="lb-desc" style="display:none"></div>
       <button class="lb-add-btn" id="lb-add-btn">Add to Cart</button>
+    </div>
+  </div>
+</div>
+
+<div class="cos-overlay" id="checkout-summary-overlay" onclick="if(event.target===this) closeCheckoutSummary()">
+  <div class="cos-card">
+    <button class="cos-close" onclick="closeCheckoutSummary()">✕</button>
+    <div class="cos-header">
+      <div class="cos-title">🧾 Order Summary</div>
+      <div class="cos-ref" id="cos-ref"></div>
+    </div>
+    <div class="cos-body">
+      <div class="cos-section">
+        <div class="cos-label">Delivering To</div>
+        <div class="cos-row"><span>Recipient</span><span id="cos-recipient"></span></div>
+        <div class="cos-row"><span>City</span><span id="cos-city"></span></div>
+        <div class="cos-row"><span>Date</span><span id="cos-date"></span></div>
+        <div class="cos-row"><span>Address</span><span id="cos-address"></span></div>
+      </div>
+      <div class="cos-section">
+        <div class="cos-label">Items</div>
+        <div id="cos-items"></div>
+      </div>
+      <div class="cos-section cos-totals">
+        <div class="cos-row"><span>Items Total</span><span id="cos-items-total"></span></div>
+        <div class="cos-row"><span>Delivery Fee</span><span id="cos-delivery-fee"></span></div>
+        <div class="cos-row" id="cos-addons-row" style="display:none"><span>Add-ons</span><span id="cos-addons-total"></span></div>
+        <div class="cos-grand-row"><span>Grand Total</span><span id="cos-grand-total"></span></div>
+      </div>
+      <a class="cos-pay-btn" id="cos-pay-link" href="#" target="_blank" rel="noopener">Open Checkout to Pay →</a>
+      <div class="cos-expiry" id="cos-expiry"></div>
+    </div>
+  </div>
+</div>
+
+<div class="ccf-overlay" id="cart-checkout-overlay" onclick="if(event.target===this) closeCartCheckoutForm()">
+  <div class="ccf-card">
+    <button class="ccf-close" onclick="closeCartCheckoutForm()">✕</button>
+    <div class="ccf-header">
+      <div class="ccf-title">Delivery Details</div>
+    </div>
+    <div class="ccf-body">
+      <div class="ccf-error" id="ccf-error"></div>
+
+      <div class="ccf-field">
+        <label class="ccf-label">Recipient Name</label>
+        <input class="ccf-input" id="ccf-name" type="text" autocomplete="name">
+      </div>
+      <div class="ccf-field">
+        <label class="ccf-label">Phone</label>
+        <input class="ccf-input" id="ccf-phone" type="tel" placeholder="077…" autocomplete="tel">
+      </div>
+      <div class="ccf-field">
+        <label class="ccf-label">Address</label>
+        <input class="ccf-input" id="ccf-address" type="text" autocomplete="street-address">
+      </div>
+      <div class="ccf-row2">
+        <div class="ccf-field">
+          <label class="ccf-label">City</label>
+          <input class="ccf-input" id="ccf-city" type="text" placeholder="Start typing…" autocomplete="off" oninput="onCityInput()" onfocus="onCityInput()">
+          <div class="ccf-city-dropdown" id="ccf-city-dropdown"></div>
+        </div>
+        <div class="ccf-field">
+          <label class="ccf-label">Delivery Date</label>
+          <input class="ccf-input" id="ccf-date" type="date" oninput="maybeCheckDelivery()">
+        </div>
+      </div>
+
+      <div class="ccf-delivery-preview" id="ccf-delivery-preview"></div>
+
+      <button class="ccf-submit-btn" id="ccf-submit-btn" onclick="submitCartCheckout()">Place Order →</button>
     </div>
   </div>
 </div>
@@ -1203,6 +1341,23 @@ function openPavilionConsole(pavilionId) {
   document.getElementById('chat-panel').classList.add('open');
 }
 
+// Friendly, in-character line shown the first time a customer opens a
+// specific category under a pavilion — replaces the old "Data channel
+// opened..." system-speak with something a vendor would actually say.
+// A few templates are picked at random per category so repeat visits
+// across different sections don't all read identically.
+const CATEGORY_GREETING_TEMPLATES = [
+  (shopkeeper, cat) => `${cat.avatar} ${cat.name} it is! What are you looking for?`,
+  (shopkeeper, cat) => `Ah, ${cat.name.toLowerCase()} — you've come to the right corner of the stall. What can I help you find?`,
+  (shopkeeper, cat) => `Right then, let's sort you out with some ${cat.name.toLowerCase()}. What did you have in mind?`,
+  (shopkeeper, cat) => `${shopkeeper} here for ${cat.name.toLowerCase()} — tell me what you need and I'll see what's in stock.`,
+];
+
+function buildCategoryGreeting(category, pavilion) {
+  const template = CATEGORY_GREETING_TEMPLATES[Math.floor(Math.random() * CATEGORY_GREETING_TEMPLATES.length)];
+  return template(pavilion.shopkeeper || pavilion.name, category);
+}
+
 function activateCategoryChannel(category, pavilion) {
   activeCategorySlug = category.slug;
 
@@ -1215,7 +1370,7 @@ function activateCategoryChannel(category, pavilion) {
   
   if (!histories[activeCategorySlug]) {
     histories[activeCategorySlug] = [];
-    const entryGreeting = `Data channel opened for [${category.name}]. My catalog lookup keys are synched with Kapruka MCP. How can I assist you with this section?`;
+    const entryGreeting = buildCategoryGreeting(category, pavilion);
     histories[activeCategorySlug].push({ role: 'assistant', content: entryGreeting });
   }
 
@@ -1289,32 +1444,80 @@ function processReply(data, currentCategorySlug, stall) {
   histories[currentCategorySlug].push({ role: 'assistant', content: replyText + (products.length ? ' [showed products]' : '') });
   if (replyText) renderBubble('agent', replyText, stall);
   if (products.length) renderProducts(products, document.getElementById('chat-msgs'));
-  if (data.checkoutUrl) renderCheckoutButton(data.checkoutUrl);
+  if (data.orderSummary) renderCheckoutButton(data.orderSummary);
   if (data.cross_stall_suggestions?.length) renderCrossStallBanner(data.cross_stall_suggestions, stall);
 }
 
-function renderCheckoutButton(url) {
+// Inline chat button — opens the finalized order summary modal rather than
+// linking straight out to Kapruka, so the customer can review what they're
+// about to pay for (items, delivery city/date, fare) before committing.
+function renderCheckoutButton(order) {
   const msgs = document.getElementById('chat-msgs');
   const el = document.createElement('div');
   el.style.cssText = 'margin-top:8px;';
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.textContent = '🛒 Complete Order on Kapruka →';
-  a.style.cssText = 'display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;text-decoration:none;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;box-shadow:0 4px 15px rgba(232,82,26,0.35);';
-  el.appendChild(a);
+  const btn = document.createElement('button');
+  btn.textContent = '🧾 View Order & Checkout →';
+  btn.style.cssText = 'display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;border:none;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;box-shadow:0 4px 15px rgba(232,82,26,0.35);cursor:pointer;';
+  btn.onclick = () => openCheckoutSummary(order);
+  el.appendChild(btn);
   msgs.appendChild(el);
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-function renderDeliveryInfo(info, stall) {
-  if (!info?.raw) return;
-  const msgs = document.getElementById('chat-msgs');
-  const el = document.createElement('div');
-  el.style.cssText = `background:rgba(244,196,48,0.08);border:1px solid rgba(244,196,48,0.2);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--text2);margin-top:2px;`;
-  el.textContent = '🚚 ' + info.raw.split('\n')[0];
-  msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
+// ── FINALIZED CHECKOUT SUMMARY MODAL ──
+// Populated from the structured `orderSummary` object the backend builds
+// out of kapruka_create_order's JSON response (price breakdown) merged with
+// the recipient/delivery fields that were sent to it.
+function openCheckoutSummary(order) {
+  if (!order) return;
+
+  document.getElementById('cos-ref').textContent = order.orderRef ? `Order ${order.orderRef}` : '';
+  document.getElementById('cos-recipient').textContent = order.recipientName || '—';
+  document.getElementById('cos-city').textContent = order.deliveryCity || '—';
+  document.getElementById('cos-date').textContent = order.deliveryDate || '—';
+  document.getElementById('cos-address').textContent = order.deliveryAddress || '—';
+
+  const itemsBox = document.getElementById('cos-items');
+  itemsBox.innerHTML = '';
+  (order.items || []).forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'cos-item';
+    row.innerHTML = `
+      ${item.image ? `<img class="cos-item-img" src="${item.image}" alt="">` : '<div class="cos-item-img"></div>'}
+      <div class="cos-item-name">${item.name}${item.icingText ? ` — <span style="color:var(--text2)">"${item.icingText}"</span>` : ''}</div>
+      <div class="cos-item-qty">×${item.quantity}</div>
+    `;
+    itemsBox.appendChild(row);
+  });
+
+  document.getElementById('cos-items-total').textContent = order.itemsTotal || '—';
+  document.getElementById('cos-delivery-fee').textContent = order.deliveryFee || '—';
+  const addonsRow = document.getElementById('cos-addons-row');
+  if (order.addonsTotal && order.addonsTotal !== 'LKR 0') {
+    addonsRow.style.display = 'flex';
+    document.getElementById('cos-addons-total').textContent = order.addonsTotal;
+  } else {
+    addonsRow.style.display = 'none';
+  }
+  document.getElementById('cos-grand-total').textContent = order.grandTotal || '—';
+
+  document.getElementById('cos-pay-link').href = order.checkoutUrl || '#';
+
+  const expiryEl = document.getElementById('cos-expiry');
+  if (order.expiresAt) {
+    try {
+      const t = new Date(order.expiresAt);
+      expiryEl.textContent = `This payment link expires at ${t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } catch { expiryEl.textContent = ''; }
+  } else {
+    expiryEl.textContent = '';
+  }
+
+  document.getElementById('checkout-summary-overlay').classList.add('show');
+}
+
+function closeCheckoutSummary() {
+  document.getElementById('checkout-summary-overlay').classList.remove('show');
 }
 
 function renderCrossStallBanner(suggestions, fromStall) {
@@ -1581,13 +1784,26 @@ function showTyping(container, emoji, bg) {
 function hideTyping(container) { container?.querySelector('#typing-ind')?.remove(); }
 
 function addToCart(p) {
-  cart.push(p);
-  document.getElementById('cart-count').textContent = cart.length;
+  const existing = cart.find(item => item.id === p.id);
+  if (existing) existing.quantity += 1;
+  else cart.push({ ...p, quantity: 1 });
+  updateCartBadge();
   const btn = document.querySelector('.cart-btn');
   btn.style.background = '#2D6A4F44';
   setTimeout(() => btn.style.background = '', 500);
 }
-function removeFromCart(i) { cart.splice(i,1); document.getElementById('cart-count').textContent = cart.length; renderCart(); }
+function updateCartBadge() {
+  document.getElementById('cart-count').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+}
+function changeCartQty(i, delta) {
+  const item = cart[i];
+  if (!item) return;
+  item.quantity += delta;
+  if (item.quantity <= 0) cart.splice(i, 1);
+  updateCartBadge();
+  renderCart();
+}
+function removeFromCart(i) { cart.splice(i,1); updateCartBadge(); renderCart(); }
 function toggleCart() {
   const d = document.getElementById('cart-drawer'), o = document.getElementById('overlay');
   if (!d.classList.contains('open')) { renderCart(); d.classList.add('open'); o.classList.add('show'); }
@@ -1598,19 +1814,255 @@ function renderCart() {
   if (!cart.length) { list.innerHTML = '<div class="empty-cart">Your cart is empty. Start browsing the stalls!</div>'; total.textContent = 'LKR 0'; return; }
   list.innerHTML = ''; let t = 0;
   cart.forEach((item,i) => {
-    const price = parseInt((item.price||'0').replace(/[^0-9]/g,''))||0; t += price;
+    const price = parseInt((item.price||'0').replace(/[^0-9]/g,''))||0; t += price * item.quantity;
     const el = document.createElement('div'); el.className = 'cart-item';
-    el.innerHTML = `<span>📦</span><span class="ci-name">${item.name}</span><span class="ci-price">${item.price}</span><button class="rm-btn" onclick="removeFromCart(${i})">✕</button>`;
+    el.innerHTML = `<span>📦</span><span class="ci-name">${item.name}</span><div class="ci-qty"><button class="ci-qty-btn" onclick="changeCartQty(${i},-1)">−</button><span class="ci-qty-val">${item.quantity}</span><button class="ci-qty-btn" onclick="changeCartQty(${i},1)">+</button></div><span class="ci-price">${item.price}</span><button class="rm-btn" onclick="removeFromCart(${i})">✕</button>`;
     list.appendChild(el);
   });
   total.textContent = `LKR ${t.toLocaleString()}`;
 }
-function checkout() { if (!cart.length) return; alert('Checkout redirection processing via Kapruka standard payment pipeline triggers coming online soon!'); }
+function checkout() { if (!cart.length) return; openCartCheckoutForm(); }
+
+// ── CART-DRAWER CHECKOUT FORM ──
+// Unlike the AI chat checkout, there's no conversation collecting recipient/
+// delivery details here, so this form collects them directly and calls the
+// no-LLM backend endpoints (/api/delivery-cities, /api/check-delivery,
+// /api/cart-checkout) added alongside it. On success it builds the same
+// `order` object shape the chat flow does and hands off to the existing
+// openCheckoutSummary() — same modal, no duplicate UI.
+const CCF_STORAGE_KEY = 'pola_checkout_details';
+let ccfSelectedCity = null;
+let ccfCityDebounce = null;
+let ccfLastDeliveryKey = null;
+
+function openCartCheckoutForm() {
+  document.getElementById('ccf-error').classList.remove('show');
+  document.getElementById('ccf-delivery-preview').classList.remove('show');
+  document.getElementById('ccf-city-dropdown').classList.remove('show');
+  ccfSelectedCity = null;
+  ccfLastDeliveryKey = null;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(CCF_STORAGE_KEY) || '{}');
+    document.getElementById('ccf-name').value    = saved.name    || '';
+    document.getElementById('ccf-phone').value   = saved.phone   || '';
+    document.getElementById('ccf-address').value = saved.address || '';
+    document.getElementById('ccf-city').value    = saved.city    || '';
+    if (saved.city) ccfSelectedCity = saved.city; // trust last-used exact city name
+  } catch { /* ignore malformed storage */ }
+  document.getElementById('ccf-date').value = '';
+
+  document.getElementById('cart-checkout-overlay').classList.add('show');
+}
+
+function closeCartCheckoutForm() {
+  document.getElementById('cart-checkout-overlay').classList.remove('show');
+}
+
+function onCityInput() {
+  const input = document.getElementById('ccf-city');
+  const dropdown = document.getElementById('ccf-city-dropdown');
+  if (input.value !== ccfSelectedCity) ccfSelectedCity = null; // typing invalidates a prior selection
+
+  clearTimeout(ccfCityDebounce);
+  const query = input.value.trim();
+  if (query.length < 2) { dropdown.classList.remove('show'); return; }
+
+  ccfCityDebounce = setTimeout(async () => {
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/delivery-cities`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, limit: 8 }),
+      });
+      const data = await r.json();
+      renderCityDropdown(data.cities || []);
+    } catch {
+      dropdown.classList.remove('show');
+    }
+  }, 300);
+}
+
+function renderCityDropdown(cities) {
+  const dropdown = document.getElementById('ccf-city-dropdown');
+  if (!cities.length) { dropdown.classList.remove('show'); return; }
+  dropdown.innerHTML = cities.map(c => `
+    <div class="ccf-city-opt" onclick='selectCity(${JSON.stringify(c.name)})'>
+      ${c.name}${c.aliases?.length ? ` <span class="ccf-city-alias">(${c.aliases.join(', ')})</span>` : ''}
+    </div>
+  `).join('');
+  dropdown.classList.add('show');
+}
+
+function selectCity(name) {
+  document.getElementById('ccf-city').value = name;
+  ccfSelectedCity = name;
+  document.getElementById('ccf-city-dropdown').classList.remove('show');
+  maybeCheckDelivery();
+}
+
+async function maybeCheckDelivery() {
+  const date = document.getElementById('ccf-date').value;
+  const preview = document.getElementById('ccf-delivery-preview');
+  if (!ccfSelectedCity || !date) { preview.classList.remove('show'); return; }
+
+  const key = `${ccfSelectedCity}|${date}`;
+  if (key === ccfLastDeliveryKey) return;
+  ccfLastDeliveryKey = key;
+
+  preview.className = 'ccf-delivery-preview show';
+  preview.textContent = 'Checking delivery…';
+
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/check-delivery`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city: ccfSelectedCity, delivery_date: date }),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) { preview.classList.remove('show'); return; }
+
+    if (data.available) {
+      preview.className = 'ccf-delivery-preview show ok';
+      preview.textContent = `🚚 Delivers to ${data.city} — ${data.rate}` + (data.perishableWarning ? ` · ${data.perishableWarning}` : '');
+    } else {
+      preview.className = 'ccf-delivery-preview show warn';
+      preview.textContent = `⚠️ Not available on ${data.checkedDate}${data.reason ? ` — ${data.reason}` : ''}` +
+        (data.nextAvailableDate ? ` · Next available: ${data.nextAvailableDate}` : '');
+    }
+  } catch {
+    preview.classList.remove('show');
+  }
+}
+
+async function submitCartCheckout() {
+  const name    = document.getElementById('ccf-name').value.trim();
+  const phone   = document.getElementById('ccf-phone').value.trim();
+  const address = document.getElementById('ccf-address').value.trim();
+  const date    = document.getElementById('ccf-date').value;
+  const errorEl = document.getElementById('ccf-error');
+
+  if (!name || !phone || !address || !ccfSelectedCity || !date) {
+    errorEl.textContent = 'Please fill in every field, and pick a city from the dropdown.';
+    errorEl.classList.add('show');
+    return;
+  }
+  errorEl.classList.remove('show');
+
+  const submitBtn = document.getElementById('ccf-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Placing order…';
+
+  const payload = {
+    cart: cart.map(item => ({ product_id: item.id, quantity: item.quantity })),
+    recipient: { name, phone },
+    delivery:  { address, city: ccfSelectedCity, date },
+    sender:    { name, anonymous: false },
+  };
+
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/cart-checkout`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+
+    if (!r.ok || data.error) {
+      errorEl.textContent = data.error || "Something went wrong — please try again.";
+      errorEl.classList.add('show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Place Order →';
+      return;
+    }
+
+    // Save details for next time, build the order object, hand off to the
+    // existing summary modal, then clear the cart — same as a real checkout.
+    localStorage.setItem(CCF_STORAGE_KEY, JSON.stringify({ name, phone, address, city: ccfSelectedCity }));
+
+    const order = {
+      checkoutUrl:      data.checkoutUrl,
+      orderRef:         data.orderRef,
+      itemsTotal:       data.itemsTotal,
+      deliveryFee:      data.deliveryFee,
+      addonsTotal:      data.addonsTotal,
+      grandTotal:       data.grandTotal,
+      expiresAt:        data.expiresAt,
+      recipientName:    name,
+      deliveryAddress:  address,
+      deliveryCity:     ccfSelectedCity,
+      deliveryDate:     date,
+      items: cart.map(item => ({
+        name: item.name, image: item.image, quantity: item.quantity,
+      })),
+    };
+
+    cart = [];
+    updateCartBadge();
+    renderCart();
+    document.getElementById('cart-drawer').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+    closeCartCheckoutForm();
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Place Order →';
+    openCheckoutSummary(order);
+
+  } catch {
+    errorEl.textContent = "Couldn't reach the server — please try again.";
+    errorEl.classList.add('show');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Place Order →';
+  }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ccf-field')) document.getElementById('ccf-city-dropdown')?.classList.remove('show');
+});
+
+// ── AMBIENT NATURE SOUND ──
+// Loops a quiet background ambience (birds / breeze / market murmur).
+// Browsers block audio-with-sound until the user has interacted with the
+// page at least once, so playback is kicked off on the first click/keydown
+// rather than on load. Mute preference is remembered across visits.
+const ambientAudio = document.getElementById('ambient-audio');
+let soundMuted = localStorage.getItem('pola_sound_muted') === 'true';
+let soundStarted = false;
+
+function applySoundBtnState() {
+  const btn = document.getElementById('sound-btn');
+  if (!btn) return;
+  btn.textContent = soundMuted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', soundMuted);
+}
+
+function startAmbientSound() {
+  if (soundStarted || !ambientAudio) return;
+  ambientAudio.volume = 0.35;
+  ambientAudio.muted = soundMuted;
+  const playPromise = ambientAudio.play();
+  if (playPromise && playPromise.catch) {
+    playPromise.then(() => { soundStarted = true; })
+      .catch(() => { /* still blocked — will retry on next gesture */ });
+  } else {
+    soundStarted = true;
+  }
+}
+
+function toggleSound() {
+  soundMuted = !soundMuted;
+  localStorage.setItem('pola_sound_muted', soundMuted);
+  applySoundBtnState();
+  if (ambientAudio) ambientAudio.muted = soundMuted;
+  if (!soundMuted) startAmbientSound();
+}
+
+applySoundBtnState();
+document.addEventListener('click', startAmbientSound, { once: true });
+document.addEventListener('keydown', startAmbientSound, { once: true });
 
 document.addEventListener('keydown', e => {
   if (['chat-input','sudu-input'].includes(document.activeElement?.id)) return;
   if (e.key === 'Escape') {
-    if (document.getElementById('lightbox-overlay').classList.contains('show')) closeLightbox();
+    if (document.getElementById('cart-checkout-overlay').classList.contains('show')) closeCartCheckoutForm();
+    else if (document.getElementById('checkout-summary-overlay').classList.contains('show')) closeCheckoutSummary();
+    else if (document.getElementById('lightbox-overlay').classList.contains('show')) closeLightbox();
     else if (isZoomed) zoomOut(); else if (suduOpen) toggleSudu();
   }
 });
