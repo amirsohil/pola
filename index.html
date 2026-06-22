@@ -162,7 +162,7 @@ button{cursor:pointer;transition:all 0.2s ease}
 .ccf-overlay.show .ccf-card{transform:translateY(0);}
 .ccf-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(20,15,10,0.6);border:1px solid rgba(244,196,48,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);z-index:2}
 .ccf-close:hover{background:rgba(20,15,10,0.85);color:var(--text)}
-.ccf-header{padding:24px 24px 4px}
+.ccf-header{padding:24px 52px 4px 24px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .ccf-title{font-family:var(--font-h);font-size:20px;font-weight:800;color:var(--text)}
 .ccf-body{padding:16px 24px 24px}
 .ccf-field{margin-bottom:14px;position:relative}
@@ -184,7 +184,7 @@ button{cursor:pointer;transition:all 0.2s ease}
 .ccf-submit-btn{display:block;width:100%;text-align:center;background:var(--orange);color:white;border:none;padding:14px;border-radius:30px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(232,82,26,0.3);margin-top:6px;cursor:pointer}
 .ccf-submit-btn:hover{background:var(--orange-d);box-shadow:0 4px 18px rgba(244,196,48,0.35)}
 .ccf-submit-btn:disabled{opacity:0.6;cursor:default}
-.ccf-clear-link{font-size:11px;color:var(--text3);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;float:right;margin-top:2px}
+.ccf-clear-link{font-size:11px;color:var(--text3);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;flex-shrink:0}
 .ccf-clear-link:hover{color:var(--text2)}
 .ccf-divider{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:18px 0 14px;display:flex;align-items:center;gap:8px}
 .ccf-divider::before,.ccf-divider::after{content:'';flex:1;height:1px;background:var(--border2)}
@@ -385,9 +385,8 @@ button{cursor:pointer;transition:all 0.2s ease}
   <div class="ccf-card">
     <button class="ccf-close" onclick="closeCartCheckoutForm()">✕</button>
     <div class="ccf-header">
-      <div class="ccf-title">Delivery Details
-        <button class="ccf-clear-link" onclick="clearSavedDetails()">Clear saved details</button>
-      </div>
+      <div class="ccf-title">Delivery Details</div>
+      <button class="ccf-clear-link" onclick="clearSavedDetails()">Clear saved details</button>
     </div>
     <div class="ccf-body">
       <div class="ccf-error" id="ccf-error"></div>
@@ -424,6 +423,11 @@ button{cursor:pointer;transition:all 0.2s ease}
       </div>
 
       <div class="ccf-delivery-preview" id="ccf-delivery-preview"></div>
+
+      <div class="ccf-field">
+        <label class="ccf-label">Gift Message <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional, up to 300 chars)</span></label>
+        <textarea class="ccf-input" id="ccf-gift-message" rows="3" maxlength="300" placeholder="e.g. Happy 10th anniversary! Every day with you is a gift…" style="resize:vertical;line-height:1.5"></textarea>
+      </div>
 
       <button class="ccf-submit-btn" id="ccf-submit-btn" onclick="submitCartCheckout()">Place Order →</button>
     </div>
@@ -1869,6 +1873,7 @@ function openCartCheckoutForm() {
     if (saved.city) ccfSelectedCity = saved.city;
   } catch { /* ignore malformed storage */ }
   document.getElementById('ccf-date').value = '';
+  document.getElementById('ccf-gift-message').value = '';
 
   document.getElementById('cart-checkout-overlay').classList.add('show');
 }
@@ -1885,6 +1890,7 @@ function clearSavedDetails() {
   document.getElementById('ccf-address').value      = '';
   document.getElementById('ccf-city').value         = '';
   document.getElementById('ccf-date').value         = '';
+  document.getElementById('ccf-gift-message').value  = '';
   ccfSelectedCity = null;
   ccfLastDeliveryKey = null;
   document.getElementById('ccf-delivery-preview').classList.remove('show');
@@ -1965,11 +1971,12 @@ async function maybeCheckDelivery() {
 }
 
 async function submitCartCheckout() {
-  const senderName = document.getElementById('ccf-sender-name').value.trim();
-  const name    = document.getElementById('ccf-name').value.trim();
-  const phone   = document.getElementById('ccf-phone').value.trim();
-  const address = document.getElementById('ccf-address').value.trim();
-  const date    = document.getElementById('ccf-date').value;
+  const senderName  = document.getElementById('ccf-sender-name').value.trim();
+  const name        = document.getElementById('ccf-name').value.trim();
+  const phone       = document.getElementById('ccf-phone').value.trim();
+  const address     = document.getElementById('ccf-address').value.trim();
+  const date        = document.getElementById('ccf-date').value;
+  const giftMessage = document.getElementById('ccf-gift-message').value.trim();
   const errorEl = document.getElementById('ccf-error');
 
   if (!senderName || !name || !phone || !address || !ccfSelectedCity || !date) {
@@ -1988,6 +1995,7 @@ async function submitCartCheckout() {
     recipient: { name, phone },
     delivery:  { address, city: ccfSelectedCity, date },
     sender:    { name: senderName, anonymous: false },
+    ...(giftMessage && { gift_message: giftMessage }),
   };
 
   try {
