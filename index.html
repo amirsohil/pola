@@ -981,6 +981,7 @@ function buildPavilionsGrid() {
     group.add(decorGroup);
     floatingDecorations.push(decorGroup);
 
+    buildPavilionDoor(s, group);
     scene.add(group);
     createFloatingOverlayLabel(s);
   });
@@ -1068,6 +1069,127 @@ function buildCourtyardLandmark() {
   glow.position.y = 0.01;
   scene.add(glow);
   glowRings.push(glow);
+}
+
+function buildPavilionDoor(s, group) {
+  // ── Measurements ────────────────────────────────────────────────────────────
+  const DW      = 0.62;              // door opening width
+  const DH      = 1.06;             // door opening height (straight portion)
+  const FT      = 0.09;             // frame timber thickness
+  const FD      = 0.13;             // frame depth (wall thickness visible)
+  const ARCH_R  = DW / 2 + FT * 0.4; // half-torus radius for the arch
+  const BASE_R  = 1.30;             // placement radius on stem surface
+
+  const isLounge = s.id === 'lounge_pavilion';
+
+  // ── Materials ────────────────────────────────────────────────────────────────
+  const woodHex   = isLounge ? 0x2C0808 : 0x7A5020;
+  const panelHex  = isLounge
+    ? 0x180404
+    : new THREE.Color(s.color).lerp(new THREE.Color(0x100800), 0.74).getHex();
+  const outCol    = isLounge ? 0x060000 : 0x2E1600;
+
+  const frameMat  = new THREE.MeshToonMaterial({ color: woodHex,  gradientMap: TOON_GRADIENT });
+  const panelMat  = new THREE.MeshToonMaterial({ color: panelHex, gradientMap: TOON_GRADIENT });
+
+  // ── Group: positioned at stem surface, rotated to face courtyard ─────────────
+  const dg = new THREE.Group();
+  const dx = -s.x, dz = -s.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  const nx = dx / len, nz = dz / len;              // unit vector toward origin
+  dg.rotation.y = Math.atan2(nx, nz);              // local +Z now points toward courtyard
+  dg.position.set(nx * BASE_R, 0, nz * BASE_R);
+
+  // ── Door panel ───────────────────────────────────────────────────────────────
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(DW - FT, DH, 0.05),
+    panelMat
+  );
+  panel.position.set(0, DH / 2, FD * 0.3);
+  panel.castShadow = true;
+  addOutline(panel, outCol, 1.06);
+  dg.add(panel);
+
+  // Horizontal rail across the panel (decorative mid-band)
+  const railCol = isLounge
+    ? 0x3A0808
+    : new THREE.Color(s.color).lerp(new THREE.Color(0x000000), 0.35).getHex();
+  const rail = new THREE.Mesh(
+    new THREE.BoxGeometry(DW - FT - 0.04, 0.055, 0.066),
+    new THREE.MeshToonMaterial({ color: railCol, gradientMap: TOON_GRADIENT })
+  );
+  rail.position.set(0, DH * 0.40, FD * 0.3 + 0.05);
+  dg.add(rail);
+
+  // ── Left & right frame pillars ───────────────────────────────────────────────
+  const pillarGeo = new THREE.BoxGeometry(FT, DH + FT, FD);
+  [-DW / 2, DW / 2].forEach(px => {
+    const pillar = new THREE.Mesh(pillarGeo, frameMat);
+    pillar.position.set(px, DH / 2, 0);
+    pillar.castShadow = true;
+    addOutline(pillar, outCol, 1.06);
+    dg.add(pillar);
+  });
+
+  // ── Arch — half-torus (XY plane, sweeps from +X → top → -X) ────────────────
+  // TorusGeometry arc starts at +X and sweeps CCW by Math.PI → natural upward arch.
+  // No extra rotation needed; torus already lies in XY which is width × height space.
+  const archGeo = new THREE.TorusGeometry(ARCH_R, FT / 2, 7, 30, Math.PI);
+  const arch = new THREE.Mesh(archGeo, frameMat);
+  arch.position.set(0, DH, 0);
+  arch.castShadow = true;
+  addOutline(arch, outCol, 1.1);
+  dg.add(arch);
+
+  // ── Step / threshold ─────────────────────────────────────────────────────────
+  const step = new THREE.Mesh(
+    new THREE.BoxGeometry(DW + FT * 2.4, 0.07, FD + 0.22),
+    new THREE.MeshToonMaterial({ color: 0xA07848, gradientMap: TOON_GRADIENT })
+  );
+  step.position.set(0, 0.035, FD * 0.25);
+  addOutline(step, 0x5A3010, 1.04);
+  dg.add(step);
+
+  // ── Per-pavilion accent above the arch ──────────────────────────────────────
+  if (isLounge) {
+    // Heavy dark warning plate (visually communicates "restricted")
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.40, 0.17, 0.05),
+      new THREE.MeshToonMaterial({ color: 0x6B0000, gradientMap: TOON_GRADIENT })
+    );
+    plate.position.set(0, DH + ARCH_R * 1.1 + 0.04, FD * 0.28);
+    addOutline(plate, 0x1A0000, 1.08);
+    dg.add(plate);
+
+    // Two rivets on the plate
+    const rivetMat = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
+    [-0.09, 0.09].forEach(ox => {
+      const rivet = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.032, 6), rivetMat);
+      rivet.rotation.x = Math.PI / 2;
+      rivet.position.set(ox, DH + ARCH_R * 1.1 + 0.04, FD * 0.28 + 0.042);
+      dg.add(rivet);
+    });
+
+    // Iron crossbar reinforcement on the door panel
+    const barMat = new THREE.MeshToonMaterial({ color: 0x2E0808, gradientMap: TOON_GRADIENT });
+    const hBar = new THREE.Mesh(new THREE.BoxGeometry(DW - FT + 0.02, 0.06, 0.07), barMat);
+    hBar.position.set(0, DH * 0.67, FD * 0.3 + 0.052);
+    dg.add(hBar);
+
+  } else {
+    // Small pavilion-coloured gem jewel at the arch peak
+    const gemMat = new THREE.MeshToonMaterial({
+      color: new THREE.Color(s.color),
+      gradientMap: TOON_GRADIENT
+    });
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), gemMat);
+    gem.position.set(0, DH + ARCH_R + 0.12, FD * 0.28);
+    gem.rotation.y = Math.PI / 4;
+    addOutline(gem, outCol, 1.12);
+    dg.add(gem);
+  }
+
+  group.add(dg);
 }
 
 function buildSuduGuideEntity() {
