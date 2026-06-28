@@ -1827,7 +1827,7 @@ function renderCrossStallBanner(suggestions, fromStall) {
       <div style="font-size:11px;font-weight:600;color:${targetPavilion.color};white-space:nowrap">Go →</div>
     `;
     banner.onclick = () => {
-      crossStallHint = `Recommended connection branch route suggestion: ${s.hint || ''}`;
+      crossStallHint = s.hint || '';
       const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === targetPavilion.id);
       if (mesh) {
         closeChat();
@@ -1970,7 +1970,7 @@ function renderSuduChips(suggestions) {
       btn.style.borderColor = targetPav.color + '44';
       btn.style.color = targetPav.color;
       btn.onclick = () => {
-        crossStallHint = s.hint ? `Sudu suggested path tracking route: ${s.hint}` : null;
+        crossStallHint = s.hint || null;
         toggleSudu();
         const mesh = interactiveMeshes.find(m => m.userData.parentGroup?.userData.stallId === targetPav.id);
         if (mesh) {
