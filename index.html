@@ -1702,6 +1702,17 @@ async function callBackend(pavilionId, message, history, cartContext, crossStall
     .concat([{ role: 'user', content: message }]);
   const body = { pavilion: pavilionId, messages };
   if (crossStallHint) body.hint = crossStallHint;
+  // Echo back products the customer already added to the cart this session —
+  // tool_history resets every request, so without this the model has no way
+  // to recall a product ID it (or a previous turn) searched for, and would
+  // either have to re-search or fail checkout entirely. Send a minimal
+  // {id, name, price, image} shape, not the full cart line (no quantity/url/
+  // category needed server-side for this).
+  if (cartContext && cartContext.length) {
+    body.cart = cartContext.map(item => ({
+      id: item.id, name: item.name, price: item.price, image: item.image
+    }));
+  }
   const r = await fetch(`${BACKEND_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
