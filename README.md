@@ -247,5 +247,5 @@ None of these are structural weaknesses. They're the right calls for where time 
 | Primary model | Gemini (`gemini-2.5-flash-lite` → `gemini-2.5-flash` → `gemini-2.0-flash`) |
 | Fallback chain | Cerebras (`gpt-oss-120b`, `zai-glm-4.7`) → Groq (`llama-3.3-70b`, `llama-4-scout`) |
 | Commerce | Kapruka MCP (`mcp.kapruka.com/mcp`) — search, categories, delivery check, guest checkout, order tracking |
-| CORS | `allow_origins=["*"]` — required for static GitHub Pages → Render cross-origin calls |
+| CORS | `allow_origins=["https://amirsohil.github.io"]` — required for static GitHub Pages → Render cross-origin calls |
 | Health check | `GET /` — returns `{status, service, gemini, cerebras, groq}` booleans; verifies backend is up without triggering any model or MCP calls |
