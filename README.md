@@ -221,19 +221,19 @@ Beyond the 3D scene, I built every product touchpoint to satisfy *"show products
 | **Bonus — Multi-item carts** | ✅ | Cart drawer with quantity controls, running total, and full cart-level checkout |
 | **Bonus — Delivery-date constraints** | ✅ | Live `kapruka_check_delivery` preview in the cart form; "next available date" surfaced before the order is placed |
 | **Bonus — Gift messaging** | ✅ | Tharushi specifically prompts for recipient name and gift message; `icing_text` flows through to Order Summary |
-| **Bonus — Tanglish / Sinhala** | ❌ | See Honest Gaps below |
+| **Bonus — Tanglish / Sinhala** | ❌ | See What's Next below |
 
 ---
 
-## 10. Honest gaps and what they cost
+## 10. What's next
 
-I'm not going to pretend everything is finished — it's more useful to be clear about what was prioritised and why.
+A few things were deliberately left for later, in order of leverage:
 
-- **No Sinhala or Tanglish support yet.** The brief calls Sinhala out as a near-guaranteed differentiator ("almost no one will attempt it"). Every persona is currently English-only; the underlying models are multilingual and would very likely respond reasonably if addressed in either, but that's an untested assumption, not a claimed feature. Given more time this is the single highest-leverage bonus item — adding language-handling notes to each persona's prompt and testing the `SHOW_CARDS` pipeline against non-Latin script queries is the complete scope.
-- **Structured cross-stall referral banners aren't live yet.** I built a full UI for them (`renderCrossStallBanner`), and Sudu's keyword chips *are* live, and navigation hints now flow through to receiving shopkeepers. But the structured `cross_stall_suggestions` signal isn't currently emitted by the backend — shopkeeper-to-shopkeeper referrals happen conversationally ("go see Tharushi for that"), which satisfies the underlying need, just without the one-tap banner UI. This is a backend-only addition (a classifier step after the agentic loop) rather than a frontend rebuild.
-- **Delivery-date constraints are plumbed, not proactively surfaced.** `kapruka_check_delivery` and the live cart-drawer preview both surface real availability and cost. But no persona currently goes out of its way to *proactively* warn about tight windows ("that won't make it by tomorrow — here's the earliest it can") unless asked. That's a prompt addition, not an architecture change.
+- **No Sinhala or Tanglish support yet.** Every persona is currently English-only; the underlying models are multilingual and would likely handle either reasonably, but that's untested, not a claimed feature. Given the brief calls this out as a near-guaranteed differentiator, it's the highest-leverage next step — persona prompt additions plus testing `SHOW_CARDS` against non-Latin queries.
+- **Cross-stall referrals are conversational, not structured yet.** Shopkeepers already refer customers to each other by name ("go see Tharushi for that"), and Sudu's chips work today. The one-tap `cross_stall_suggestions` banner UI is built (`renderCrossStallBanner`) but not yet wired to a backend signal — a classifier step after the agentic loop, not a frontend rebuild.
+- **Delivery-date constraints are surfaced on request, not proactively.** `kapruka_check_delivery` and the cart preview both work correctly; no persona yet volunteers a tight-window warning unless asked. A prompt addition, not an architecture change.
 
-None of these are structural weaknesses. They're the right calls for where time was best spent — getting the core discovery-to-checkout loop airtight — and each has a clear, scoped next step.
+None of these are structural gaps — the core discovery-to-checkout loop was the priority, and each item above has a clear, scoped fix.
 
 ---
 
